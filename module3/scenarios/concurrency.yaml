@@ -1,0 +1,63 @@
+scenario:
+  name: concurrent_sessions
+  description: >
+    Two sessions (A and B) run concurrently. Events from each session
+    must only appear in their respective session traces. No cross-session
+    contamination is allowed.
+  tags: [concurrency, session_isolation, core]
+  max_duration_ms: 1000
+
+  sessions:
+    session_a:
+      user: "alice"
+    session_b:
+      user: "bob"
+
+  events:
+    # Session A events
+    - at_ms: 0
+      type: TEXT_CHUNK
+      session_key: session_a
+      payload:
+        text: "Book flight for Alice"
+
+    - at_ms: 10
+      type: END_OF_TURN
+      session_key: session_a
+      payload:
+        final_text: "Book flight for Alice"
+
+    # Session B events (interleaved)
+    - at_ms: 5
+      type: TEXT_CHUNK
+      session_key: session_b
+      payload:
+        text: "Book flight for Bob"
+
+    - at_ms: 15
+      type: END_OF_TURN
+      session_key: session_b
+      payload:
+        final_text: "Book flight for Bob"
+
+    # Session A interruption
+    - at_ms: 200
+      type: INTERRUPTION
+      session_key: session_a
+      payload:
+        reason: user_interruption
+        text: "Change Alice's flight"
+
+  trace_assertions:
+    - entry_type: SESSION_CREATED
+      min_count: 2
+      description: "Both sessions were created"
+
+    - entry_type: TEXT_CHUNK
+      min_count: 2
+      description: "Text chunks from both sessions were recorded"
+
+    - entry_type: GENERATION_INVALIDATED
+      session_key: session_a
+      min_count: 1
+      description: "Session A generation was invalidated on interrupt"

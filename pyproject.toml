@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prism-runtime"
+version = "0.1.0"
+description = "PRISM GenAI Hackathon 3.0 — Module 3: Shared Runtime Architecture & Evaluation Infrastructure"
+readme = "module3/README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5.0",
+    "pyyaml>=6.0.1",
+    "aiofiles>=23.2.1",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["module3/tests", "module1/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+log_cli = true
+log_cli_level = "INFO"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["module1*", "module3*"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true

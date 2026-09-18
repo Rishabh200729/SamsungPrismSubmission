@@ -1,0 +1,34 @@
+scenario:
+  name: simple_request
+  description: >
+    Basic happy-path: user sends a text chunk + end-of-turn,
+    agent responds with a final response. No interruption.
+  tags: [basic, happy_path]
+  max_duration_ms: 2000
+
+  sessions:
+    default: {}
+
+  events:
+    - at_ms: 0
+      type: TEXT_CHUNK
+      payload:
+        text: "What is the weather in Seoul?"
+
+    - at_ms: 50
+      type: END_OF_TURN
+      payload:
+        final_text: "What is the weather in Seoul?"
+
+  trace_assertions:
+    - entry_type: TEXT_CHUNK
+      min_count: 1
+      description: "TEXT_CHUNK was recorded in trace"
+
+    - entry_type: END_OF_TURN
+      min_count: 1
+      description: "END_OF_TURN was recorded in trace"
+
+    - entry_type: SESSION_CREATED
+      min_count: 1
+      description: "Session was created"
