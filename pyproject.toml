@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.5.0",
     "pyyaml>=6.0.1",
     "aiofiles>=23.2.1",
+    "jsonschema>=4.20.0",
 ]
 
 [project.optional-dependencies]
@@ -23,7 +24,7 @@ test = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["module3/tests", "module1/tests"]
+testpaths = ["module3/tests", "module1/tests", "module4/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -32,7 +33,7 @@ log_cli_level = "INFO"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["module1*", "module3*"]
+include = ["module1*", "module3*", "module4*"]
 
 [tool.mypy]
 python_version = "3.11"
