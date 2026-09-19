@@ -33,31 +33,8 @@ deciding to emit a tool call — see `test_direct_call_path_is_race_free` for th
 pattern. This needs a five-minute conversation with Module 2's owner before day 8's
 integration pass, not a discovery during it.
 
-## Status as of the `main` branch snapshot (resolved gaps)
 
-Both issues below were flagged against an earlier, incomplete snapshot and are now
-**confirmed fixed** — verified by actually running the full suite against your real
-`main` branch, not by re-reading the code:
-
-1. ~~`priority_input_queue.py` missing~~ — your teammate's real implementation is now in
-   `module3/runtime/queues/priority_input_queue.py`. My earlier stopgap version has been
-   deleted; it's no longer needed.
-2. ~~`Runtime` not wired to `PriorityInputQueue`~~ — `runtime.py` now constructs
-   `PriorityInputQueue` directly, and `module3/tests/test_runtime_priority_wiring.py`
-   (your team's own test) passes: an `INTERRUPTION` submitted after a backlog of data
-   events is dispatched first, every time, across a 20-run stress test.
-
-Full suite result at the time of this integration: **276 passed, 0 failed**
-(`python -m pytest` from repo root). Module 4 required zero code changes to work against
-this snapshot — the earlier work against the documented interface contract paid off.
-
-## Local LLM, not a hosted API — what this changes
-
-Confirmed: the team is running a self-hosted model with direct logits access. This means
-`constrained_output.py`'s `XGrammarBackend` is now the **primary, recommended** path for
-Module 2's final-response/tool-argument generation — not a maybe-someday backend. See
-`constrained_output.py`'s module docstring for full usage (`XGrammarBackend.generate(...)`
-wraps compile → constrained `model.generate()` → decode → parse in one call).
+## Local LLM, 
 
 **I could not test `XGrammarBackend` end-to-end** — couldn't install `xgrammar` or load a
 real model in the sandbox I built this in (disk space). It's written directly from
