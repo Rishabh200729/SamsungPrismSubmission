@@ -89,9 +89,12 @@ class PriorityInputQueue:
     # Producer API
     # ------------------------------------------------------------------
 
-    async def put(self, event: BaseEvent) -> None:
+    async def put(self, event: BaseEvent) -> BaseEvent | None:
         """
         Route and enqueue an event.
+
+        Returns the dropped data event if the data lane overflowed under the
+        drop-oldest-data policy, otherwise None.
 
         Raises RuntimeError if the queue has been closed.
         Blocks on the data lane if data_maxsize is set and drop_oldest_data
@@ -99,6 +102,8 @@ class PriorityInputQueue:
         """
         if self._closed:
             raise RuntimeError("PriorityInputQueue is closed — cannot accept new events")
+
+        dropped: BaseEvent | None = None
 
         if event.event_type in _CONTROL_TYPES:
             await self._control.put(event)
@@ -110,7 +115,7 @@ class PriorityInputQueue:
             )
         else:
             # Apply drop-oldest policy if needed before blocking
-            self._maybe_drop_oldest_data()
+            dropped = self._maybe_drop_oldest_data()
             await self._data.put(event)
             logger.debug(
                 "PriorityInputQueue.put [DATA] event_type=%s session=%s event_id=%s",
@@ -122,8 +127,13 @@ class PriorityInputQueue:
         async with self._ready:
             self._ready.notify_all()
 
-    def _maybe_drop_oldest_data(self) -> None:
-        """Drop the oldest data event if the lane is full and policy allows it."""
+        return dropped
+
+    def _maybe_drop_oldest_data(self) -> BaseEvent | None:
+        """Drop the oldest data event if the lane is full and policy allows it.
+
+        Returns the dropped event, or None if nothing was dropped.
+        """
         if (
             self._drop_oldest_data
             and self._data_maxsize > 0
@@ -137,8 +147,10 @@ class PriorityInputQueue:
                     "PriorityInputQueue data overflow: dropped oldest event_id=%s",
                     dropped.event_id,
                 )
+                return dropped
             except asyncio.QueueEmpty:
                 pass  # Race: queue was drained between full() check and get_nowait()
+        return None
 
     # ------------------------------------------------------------------
     # Consumer API

@@ -210,7 +210,7 @@ Import factories from `module3.runtime.events`:
 |---|---|---|---|
 | `TEXT_CHUNK` | `make_text_chunk(...)` | `text: str`<br>`is_partial: bool = False` | Streaming user speech transcribed by ASR. |
 | `END_OF_TURN` | `make_end_of_turn(...)` | `utterance_id: str`<br>`final_text: str \| None` | Marks end of user speaking turn; triggers reasoning. |
-| `INTERRUPTION` | `make_interruption(...)` | `reason: str = "barge_in"`<br>`confidence: float = 1.0` | Voice Activity Detection (VAD) barge-in signal. |
+| `INTERRUPTION` | `make_interruption(...)` | `reason: str = "user_interruption"`<br>`text: str \| None`<br>`supersedes_generation: int \| None`<br>`competitive: bool = True` | Priority VAD/conversation signal. `competitive=True` cancels superseded work; `False` is a backchannel/acknowledgment and does not cancel or advance generation. |
 | `AUDIO_WAV` | `make_audio_wav(...)` | `audio_b64: str`<br>`duration_ms: float`<br>`sample_rate: int = 16000` | Raw audio waveform chunk for acoustic analysis. |
 | `VIDEO_FRAME` | `make_video_frame(...)` | `frame_b64: str`<br>`width: int`<br>`height: int`<br>`frame_index: int = 0` | Camera frame chunk for computer vision. |
 | `TOOL_RESULT` | `make_tool_result(...)` | `call_id: str`<br>`task_id: str`<br>`result: Any = None`<br>`success: bool = True`<br>`error: str \| None`<br>`latency_ms: float \| None` | Asynchronous response from external tool execution. |

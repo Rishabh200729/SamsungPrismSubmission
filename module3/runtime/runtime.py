@@ -48,6 +48,7 @@ from .events.output_events import make_cancellation
 from .events.input_events import ToolManifestPayload
 from .tools import CallRecord, ToolSideEffect
 from .queues.input_queue import InputQueue
+from .queues.priority_input_queue import PriorityInputQueue
 from .queues.output_queue import OutputQueue
 from .sessions.manager import SessionContext, SessionManager
 from .tasks.lifecycle import ExecutionPhase, TaskStatus
@@ -89,9 +90,9 @@ class Runtime:
             VirtualClock() if config.deterministic_mode else RealClock()
         )
 
-        self._input_queue = InputQueue(
-            maxsize=config.input_queue_maxsize,
-            drop_oldest=config.input_queue_drop_oldest,
+        self._input_queue = PriorityInputQueue(
+            data_maxsize=config.input_queue_maxsize,
+            drop_oldest_data=config.input_queue_drop_oldest,
         )
         self._output_queue = OutputQueue(maxsize=config.output_queue_maxsize)
         self._dispatcher = Dispatcher()
@@ -334,10 +335,19 @@ class Runtime:
             ctx.tool_manifest.install(ToolManifestPayload.model_validate(event.payload).tools)
 
     async def _handle_interruption(self, event: BaseEvent) -> None:
-        """Priority semantic action: invalidate first, then make cancellation observable."""
+        """Cancel only competitive interruptions; backchannels remain priority events."""
         ctx = self._session_manager.get_session(event.session_id)
         if ctx is None:
             return
+        competitive = event.payload.get("competitive", True)
+        if not competitive:
+            logger.info(
+                "Runtime: non-competitive interruption (backchannel) for session=%s, "
+                "skipping cancellation",
+                event.session_id,
+            )
+            return
+
         ctx.metadata["_interrupt_guard"] = True
         old_generation, new_generation = await self.request_cancellation(event.session_id, reason=event.payload.get("reason", "interruption"))
         ctx.state_store.invalidate(generation=new_generation, reason=event.payload.get("reason", "interruption"))
@@ -708,7 +718,7 @@ class Runtime:
         return self._clock
 
     @property
-    def input_queue(self) -> InputQueue:
+    def input_queue(self) -> PriorityInputQueue:
         return self._input_queue
 
     @property

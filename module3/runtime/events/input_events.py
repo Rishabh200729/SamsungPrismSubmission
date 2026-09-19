@@ -75,6 +75,13 @@ class InterruptionPayload(BaseModel):
     supersedes_generation: int | None = Field(
         None, description="If set, explicitly supersedes this generation"
     )
+    competitive: bool = Field(
+        True,
+        description=(
+            "True = user is taking the floor (cancel current work). "
+            "False = backchannel/acknowledgment (no cancellation)."
+        ),
+    )
 
     model_config = {"extra": "forbid"}
 
@@ -187,12 +194,14 @@ def make_interruption(
     text: str | None = None,
     reason: str = "user_interruption",
     supersedes_generation: int | None = None,
+    competitive: bool = True,
     **kwargs: Any,
 ) -> BaseEvent:
     p = InterruptionPayload(
         reason=reason,
         text=text,
         supersedes_generation=supersedes_generation,
+        competitive=competitive,
     )
     return _make_input(InputEventType.INTERRUPTION, session_id, timestamp_ms, p, **kwargs)
 
