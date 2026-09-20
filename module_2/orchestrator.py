@@ -129,7 +129,7 @@ class Module2ReasoningAdapter:
             # coroutine can't run before we yield control back to the loop.
             await execute_and_report(
                 self.runtime, sid, call_id, task_id_box, intent, arguments,
-                self.tool_registry,
+                self.tool_registry, self.manifest,
             )
 
         task_id = await self.runtime.create_background_task(
