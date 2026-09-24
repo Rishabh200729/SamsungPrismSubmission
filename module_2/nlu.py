@@ -75,6 +75,8 @@ _NAME_MARKERS = ("for", "passenger", "name is", "under the name", "traveler")
 _NON_ENTITY_WORDS = _NON_NAME_WORDS | {
     "cancel", "book", "search", "flight", "flights", "hotel", "hotels",
     "class", "first", "second", "one", "two", "three",
+    "me", "it", "that", "this", "the", "a", "an", "no", "yes", "my", "our",
+    "on", "at", "in", "for", "from", "by", "with", "and", "or",
 }
 
 # Extend as your team's scenarios reveal more phrasing variety.
@@ -153,8 +155,9 @@ class RuleBasedExtractor(IntentExtractor):
         if not candidates:
             return None
 
-        # ready > full_match > score, in that order (see module docstring).
-        candidates.sort(key=lambda c: (c[0], c[1], c[2]), reverse=True)
+        # Prefer full_match > score > ready, so a tool with full keyword
+        # overlap isn't displaced by an unrelated tool with fewer required slots.
+        candidates.sort(key=lambda c: (c[1], c[2], c[0]), reverse=True)
         return candidates[0][3]
 
     # ------------------------------------------------------------------
@@ -164,10 +167,6 @@ class RuleBasedExtractor(IntentExtractor):
     def _extract_slots(self, text: str, intent: str, manifest: ToolManifest) -> Dict[str, Any]:
         slots: Dict[str, Any] = {}
         required = manifest.required_slots_for(intent)
-        # A tool with no manifest-declared parameters (or one Module 2
-        # hasn't seen a TOOL_MANIFEST for yet) still deserves a best-effort
-        # slot guess against the generic slot names below, so fall back to
-        # that fixed set rather than extracting nothing.
         target_slots = required or ("destination", "date", "passenger_name")
 
         date_val = self._find_date(text)
@@ -190,6 +189,11 @@ class RuleBasedExtractor(IntentExtractor):
                     slots.setdefault(r, name_val)
 
         place = self._find_place(text)
+        if not place:
+            # Standalone city or destination reply (e.g. user just answers "Delhi" or "Chandigarh")
+            words = [w for w in _words(text) if w not in _NON_ENTITY_WORDS and not self._find_date(w)]
+            if 1 <= len(words) <= 2:
+                place = " ".join(words).title()
         if place:
             for r in target_slots:
                 if r.lower() in ("destination", "city", "location", "origin") and r not in slots:
@@ -209,22 +213,25 @@ class RuleBasedExtractor(IntentExtractor):
         return None
 
     def _find_place(self, text: str) -> Optional[str]:
-        # Multi-word place names (e.g. "New York", "Los Angeles"), tried in
-        # decreasing preposition specificity so "to" doesn't shadow "from".
+        # Multi-word place names (e.g. "New York", "Los Angeles", "delhi", "chandigarh")
         for prep in _PLACE_PREPOSITIONS:
-            for m in re.finditer(rf"\b{prep}\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)", text):
-                candidate = m.group(1).strip()
-                if candidate.lower() not in _NON_ENTITY_WORDS:
-                    return candidate
+            for m in re.finditer(rf"\b{prep}\s+([a-zA-Z]+)(?:\s+([a-zA-Z]+))?", text, re.IGNORECASE):
+                w1 = m.group(1).strip()
+                w2 = m.group(2)
+                if w1.lower() in _NON_ENTITY_WORDS:
+                    continue
+                if w2 and w2.strip().lower() not in _NON_ENTITY_WORDS:
+                    return f"{w1} {w2.strip()}".title()
+                return w1.title()
         return None
 
     def _find_person_name(self, text: str) -> Optional[str]:
         for marker in _NAME_MARKERS:
             m = re.search(
-                rf"\b{re.escape(marker)}\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)", text
+                rf"\b{re.escape(marker)}\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)?)", text, re.IGNORECASE
             )
             if m:
                 candidate = m.group(1).strip()
                 if candidate.lower() not in _NON_ENTITY_WORDS:
-                    return candidate
+                    return candidate.title()
         return None

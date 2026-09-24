@@ -81,6 +81,12 @@ class Module2ReasoningAdapter:
         if not intent:
             final_text = event.payload.get("final_text") or ""
             intent, extracted = self.nlu.extract(final_text, self.manifest)
+        if not intent and tracker.active_intent:
+            # User is answering a clarification or correcting a slot mid-conversation
+            followup_slots = self.nlu._extract_slots(final_text, tracker.active_intent, self.manifest)
+            if followup_slots:
+                intent = tracker.active_intent
+                extracted = followup_slots
         if not intent:
             # "Unseen tools" is an explicitly graded scenario category —
             # going completely silent here is the worst outcome for Floor
