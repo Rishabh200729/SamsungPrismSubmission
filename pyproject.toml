@@ -3,28 +3,25 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "prism-runtime"
+name = "prism-voice-agent"
 version = "0.1.0"
-description = "PRISM GenAI Hackathon 3.0 — Module 3: Shared Runtime Architecture & Evaluation Infrastructure"
-readme = "module3/README.md"
-requires-python = ">=3.11"
+description = "PRISM: Voice-Native Interruptible Real-Time Agent Architecture — Samsung PRISM GenAI Hackathon 3.0"
+readme = "README.md"
+requires-python = ">=3.10"
 dependencies = [
-    "pydantic>=2.5.0",
-    "pyyaml>=6.0.1",
-    "aiofiles>=23.2.1",
-    "jsonschema>=4.20.0",
+    "livekit-agents>=1.0.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
 test = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
-    "pytest-cov>=4.1.0",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["module3/tests", "module1/tests", "module4/tests"]
+testpaths = ["prism/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -33,9 +30,10 @@ log_cli_level = "INFO"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["module1*", "module3*", "module4*"]
+include = ["prism*", "agent*"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = false
 ignore_missing_imports = true
+
