@@ -1,0 +1,102 @@
+[
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "travel_01"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "travel_05"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "travel_09"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "travel_12"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "travel_17"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "finance_01"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "finance_04"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "finance_08"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "finance_11"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "finance_15"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "housing_01"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "housing_03"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "housing_07"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "housing_10"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "housing_14"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "ecommerce_01"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "ecommerce_04"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "ecommerce_08"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "ecommerce_11"
+  },
+  {
+    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
+    "model": "gemini-2.0-flash",
+    "scenario_id": "ecommerce_15"
+  }
+]
