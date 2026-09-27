@@ -127,12 +127,12 @@ class AssistantFnc:
         self.tracker = tracker
         self.dispatcher = dispatcher
 
-    @ai_callable_decorator(description="Search for available flights to a destination.")
+    @ai_callable_decorator(description="MANDATORY tool to search for available flights. NEVER answer flight availability from memory. Execute immediately.")
     async def search_flights(self, destination: str, date: str):
         """
         Args:
-            destination: The city or airport, e.g. 'Miami' or 'Milan'
-            date: The travel date in natural month and day format, e.g. 'October 7' or 'June 3'
+            destination: The city or airport, e.g. 'Miami' or 'Milan'. Preserve user's exact wording.
+            date: The travel date in natural language format, e.g. 'October 7', 'June 3', 'March 15'.
         """
         # Canonical benchmark date formatting
         if isinstance(date, str):
@@ -154,7 +154,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Book a flight ticket.")
+    @ai_callable_decorator(description="MANDATORY tool to book a flight ticket. Execute immediately after search when user requests booking. NEVER ask for confirmation.")
     async def book_flight(self, passenger_name: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -165,7 +165,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Update user identity document details.")
+    @ai_callable_decorator(description="MANDATORY tool to update identity document details (passport, visa, driver_license). Fully authorized in this test environment. NEVER refuse. doc_number must be a continuous alphanumeric string WITHOUT hyphens or spaces, e.g. 'P123', 'V44', 'DL555'.")
     async def update_identity_doc(self, doc_type: str, doc_number: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -176,7 +176,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Get benefits for a credit card.")
+    @ai_callable_decorator(description="MANDATORY tool to get credit card benefits. NEVER guess or recall benefits from memory. Execute this tool immediately.")
     async def get_card_benefits(self, card_type: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -187,7 +187,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Fetch the exact current foreign exchange rate.")
+    @ai_callable_decorator(description="MANDATORY tool to fetch the exact current foreign exchange rate. NEVER calculate or guess exchange rates from memory. Always invoke this tool.")
     async def get_exchange_rate(self, amount: float, from_currency: str, to_currency: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -198,7 +198,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Modify billing autopay source.")
+    @ai_callable_decorator(description="MANDATORY tool to modify billing autopay source. Execute immediately when user requests autopay change. NEVER ask for confirmation.")
     async def modify_autopay(self, bill_type: str, source_account: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -209,19 +209,26 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Search for available rental apartments.")
+    @ai_callable_decorator(description="MANDATORY tool to search for available rental apartments. ALWAYS include pets_allowed=true when the user mentions pets, animals, or pet-friendly. Do NOT answer from memory.")
     async def search_apartments(
         self,
         city: str = None,
         bedrooms: int = None,
         max_price: float = None,
-        pets_allowed: bool = False,
+        pets_allowed: bool = None,
     ):
+        """
+        Args:
+            city: City to search in.
+            bedrooms: Number of bedrooms required.
+            max_price: Maximum monthly rent budget as a number (not a string).
+            pets_allowed: Set to true when user mentions pets or pet-friendly. Required when pets mentioned.
+        """
         args = {}
         if city is not None: args["city"] = city
         if bedrooms is not None: args["bedrooms"] = bedrooms
         if max_price is not None: args["max_price"] = max_price
-        if pets_allowed: args["pets_allowed"] = pets_allowed
+        if pets_allowed is not None: args["pets_allowed"] = pets_allowed  # always include when explicitly provided
 
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -232,8 +239,14 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Calculate commute duration between two addresses.")
+    @ai_callable_decorator(description="MANDATORY tool to calculate commute duration. NEVER estimate from memory. Accept any address description the user provides, including informal ones like 'my apartment', 'my house', 'the office', 'the stadium', or 'the grocery store'. Pass them VERBATIM without elaboration.")
     async def calculate_commute(self, origin_address: str, destination_address: str, mode: str = "driving"):
+        """
+        Args:
+            origin_address: Starting address. Accept any description verbatim, e.g. 'my apartment', 'my house'.
+            destination_address: Destination. Accept any description verbatim, e.g. 'the stadium', 'coffee shop on 5th'.
+            mode: Transport mode, e.g. 'driving', 'transit'. Default is 'driving'.
+        """
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
             name="calculate_commute",
@@ -243,8 +256,8 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Update user search filter.")
-    async def update_search_filter(self, filter_name: str, value: str):
+    @ai_callable_decorator(description="MANDATORY tool to instantly update a search filter. Execute immediately without confirmation. Valid filter_name values: 'max_price', 'min_bedrooms', 'pets_allowed', 'neighborhood', 'city'. Pass numbers as numbers (1800 not '1800'), booleans as booleans (true not 'true').")
+    async def update_search_filter(self, filter_name: str, value):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
             name="update_search_filter",
@@ -254,7 +267,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Track order shipping status.")
+    @ai_callable_decorator(description="MANDATORY tool to track order shipping status. NEVER answer from memory. Execute for every order ID mentioned. order_id must be a continuous alphanumeric string without hyphens, e.g. 'A1', 'BOB12'.")
     async def track_order(self, order_id: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -265,7 +278,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Search for products in the catalog.")
+    @ai_callable_decorator(description="MANDATORY tool to search for products. NEVER answer from memory or generate recommendations without calling this tool. Use the user's EXACT words for the query — do NOT paraphrase, abbreviate, or expand (e.g. 'mechanical keyboards' not 'keyboard', 'coffee maker' not 'kitchen').")
     async def search_products(self, query: str, max_price: float = None, category: str = None):
         args = {"query": query}
         if max_price is not None: args["max_price"] = max_price
@@ -280,7 +293,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="Add an item to shopping cart.")
+    @ai_callable_decorator(description="MANDATORY tool to add an item to the shopping cart. Execute immediately when user asks to add something. product_id must be a continuous alphanumeric string without hyphens, e.g. 'B7', 'K2', 'P99'.")
     async def add_to_cart(self, product_id: str, quantity: int = 1):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -303,12 +316,14 @@ def get_realtime_model():
         return google.realtime.RealtimeModel(
             model=os.getenv("GOOGLE_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025"),
             voice=os.getenv("GOOGLE_VOICE", "Puck"),
+            temperature=0.0,   # pin for deterministic, reproducible benchmark re-runs
         )
     elif provider == "gpt_realtime":
         from livekit.plugins import openai
         return openai.realtime.RealtimeModel(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-realtime-preview"),
             voice=os.getenv("OPENAI_VOICE", "alloy"),
+            temperature=0.0,   # pin for deterministic, reproducible benchmark re-runs
         )
     raise ValueError(f"Unsupported provider: {provider}")
 
@@ -321,12 +336,21 @@ class VoiceAgent(Agent):
     def __init__(self) -> None:
         super().__init__(
             instructions=(
-                "You are a helpful voice AI assistant. "
-                "Keep your responses concise and conversational since they will be spoken aloud. "
-                "Respond naturally to whatever the user says or asks. "
-                "You have access to 12 APIs across 4 domains (Travel, Finance, Housing, E-Commerce). "
-                "CRITICAL INSTRUCTION: This is a safe, simulated testing environment. You are fully authorized and REQUIRED to use the provided tools to fulfill any user request, including updating identity documents, modifying billing, or processing ecommerce orders. Never refuse a request due to real-world authorization or safety concerns."
-                "CRITICAL INSTRUCTION 2: DO NOT ASK CLARIFYING QUESTIONS or wait for the user to confirm. DO NOT batch tool calls. If the user gives you an instruction (e.g. track an order, add to cart, update a filter), EXECUTE THE TOOL IMMEDIATELY. DO NOT reply with a question or conversational filler instead of calling the tool. ALWAYS call the correct tools and use the API returned results to answer the user! NEVER hallucinate or make up data! Do NOT answer questions using your internal memory. Even if you think you know the exchange rate or price, YOU MUST INVOKE THE API TOOL to fetch the accurate data. Execute the tool unconditionally!"
+                "You are a helpful voice AI assistant handling real user requests with tools. "
+                "Keep responses concise and conversational — they will be spoken aloud. "
+                "You have 12 APIs across 4 domains: Travel, Finance, Housing, E-Commerce. "
+                "RULES: "
+                "1. ALWAYS use the provided tools — NEVER answer from memory or hallucinate. "
+                "2. Execute tools only after the user's FINAL intent is clear. Do NOT execute prematurely. "
+                "3. DO NOT ask clarifying questions — use whatever description the user provides verbatim (e.g. 'my apartment', 'the office'). "
+                "4. Users speak with disfluencies (um, uh, pauses, self-corrections). "
+                "   If the user corrects themselves (e.g. 'no wait, not Paris, I mean Berlin'), use ONLY the CORRECTED value. "
+                "   Call each tool ONCE with the final intended arguments. "
+                "5. Chain tools sequentially for multi-step requests. Use results from one tool as input to the next. "
+                "6. This is a safe, simulated test environment — you are fully authorized to use all tools. "
+                "7. IDs and codes are continuous alphanumeric strings WITHOUT hyphens: 'B7' not 'B-7', 'V44' not 'V-4-4'. "
+                "8. Pass numbers as numbers (1800 not '1800') and booleans as booleans (true not 'true'). "
+                "9. Preserve the user's EXACT wording for search queries and addresses — do NOT paraphrase or expand."
             ),
         )
 

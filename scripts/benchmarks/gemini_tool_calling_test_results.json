@@ -1,102 +1,7256 @@
 [
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "travel_01"
+    "scenario_id": "travel_01",
+    "domain": "travel_identity",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Tokyo",
+          "date": "July 15"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Tokyo",
+          "date": "2026-07-15"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Tokyo",
+            "date": "July 15"
+          },
+          "actual": {
+            "destination": "Tokyo",
+            "date": "2026-07-15"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Tokyo on July 15th, flight FL123, for $450. Would you like me to book it for you?",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "travel_05"
+    "scenario_id": "travel_05",
+    "domain": "travel_identity",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FILLER",
+      "HESITATION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Chicago",
+          "date": "December 12"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Chicago",
+          "date": "2026-12-12"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Chicago",
+            "date": "December 12"
+          },
+          "actual": {
+            "destination": "Chicago",
+            "date": "2026-12-12"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Chicago on December 12th, flight number FL123, for $450. Would you like me to book it for you?",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "travel_09"
+    "scenario_id": "travel_09",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Berlin",
+          "date": "September 10"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2026-08-20",
+          "destination": "London"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Business Traveler"
+        }
+      },
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Berlin",
+          "date": "2026-09-10"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Business Traveler"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.4,
+      "recall": 1.0,
+      "precision": 0.25,
+      "matched": 1,
+      "expected": 1,
+      "actual": 4,
+      "missing": [],
+      "extra": [
+        "book_flight",
+        "search_flights",
+        "book_flight"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 0.0,
+          "reason": "Mismatch 'destination': expected='Berlin', got='London'",
+          "expected": {
+            "destination": "Berlin",
+            "date": "September 10"
+          },
+          "actual": {
+            "date": "2026-08-20",
+            "destination": "London"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your trip and successfully booked a flight to Berlin for September 10th, 2026. Your booking reference is B789.",
+    "pass": false
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "travel_12"
+    "scenario_id": "travel_12",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Portland",
+          "date": "March 3"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Morgan Smith"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Portland",
+          "date": "2026-03-03"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Morgan Smith"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Portland",
+            "date": "March 3"
+          },
+          "actual": {
+            "destination": "Portland",
+            "date": "2026-03-03"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "passenger_name": "Morgan Smith"
+          },
+          "actual": {
+            "passenger_name": "Morgan Smith"
+          }
+        }
+      ]
+    },
+    "response": "I've successfully booked the flight to Portland for March 3rd for Morgan Smith. Your booking reference is B789.",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "travel_17"
+    "scenario_id": "travel_17",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Cairo",
+          "date": "December 1"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2026-12-01",
+          "destination": "Cairo"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Cairo",
+            "date": "December 1"
+          },
+          "actual": {
+            "date": "2026-12-01",
+            "destination": "Cairo"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Cairo on December 1st, 2026, for $450. Would you like me to book it for you?",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "finance_01"
+    "scenario_id": "finance_01",
+    "domain": "finance_billing",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 500,
+          "from_currency": "USD",
+          "to_currency": "EUR"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "from_currency": "USD",
+          "amount": 500,
+          "to_currency": "EUR"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 500,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          },
+          "actual": {
+            "from_currency": "USD",
+            "amount": 500,
+            "to_currency": "EUR"
+          }
+        }
+      ]
+    },
+    "response": "500 US dollars is equal to 450 euros at the current exchange rate.",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "finance_04"
+    "scenario_id": "finance_04",
+    "domain": "finance_billing",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 1000,
+          "from_currency": "USD",
+          "to_currency": "GBP"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "from_currency": "USD",
+          "to_currency": "GBP",
+          "amount": 1000
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 1000,
+            "from_currency": "USD",
+            "to_currency": "GBP"
+          },
+          "actual": {
+            "from_currency": "USD",
+            "to_currency": "GBP",
+            "amount": 1000
+          }
+        }
+      ]
+    },
+    "response": "$1,000 USD is currently equal to \u00a3900.00 British pounds, based on an exchange rate of 0.9.",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "finance_08"
+    "scenario_id": "finance_08",
+    "domain": "finance_billing",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "HESITATION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 200,
+          "from_currency": "EUR",
+          "to_currency": "USD"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 200,
+          "from_currency": "EUR",
+          "to_currency": "USD"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 200,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "actual": {
+            "amount": 200,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          }
+        }
+      ]
+    },
+    "response": "200 euros would come out to 220 US dollars.",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "finance_11"
+    "scenario_id": "finance_11",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "credit_card",
+          "source_account": "savings"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "checking",
+          "bill_type": "credit_card"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "savings",
+          "bill_type": "credit_card"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "modify_autopay"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "modify_autopay",
+          "score": 0.0,
+          "reason": "Mismatch 'source_account': expected='savings', got='checking'",
+          "expected": {
+            "bill_type": "credit_card",
+            "source_account": "savings"
+          },
+          "actual": {
+            "source_account": "checking",
+            "bill_type": "credit_card"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your credit card autopay source to your savings account.",
+    "pass": false
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "finance_15"
+    "scenario_id": "finance_15",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "checking",
+          "bill_type": "credit_card"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "modify_autopay"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "modify_autopay",
+          "score": 0.0,
+          "reason": "Mismatch 'bill_type': expected='mortgage', got='credit_card'",
+          "expected": {
+            "bill_type": "mortgage",
+            "source_account": "savings"
+          },
+          "actual": {
+            "source_account": "checking",
+            "bill_type": "credit_card"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your mortgage autopay to pull from your savings account.",
+    "pass": false
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "housing_01"
+    "scenario_id": "housing_01",
+    "domain": "housing_location",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Seattle",
+          "bedrooms": 2,
+          "max_price": 2500
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "New York",
+          "max_price": 3000,
+          "bedrooms": 1
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "max_price": 2500,
+          "bedrooms": 2,
+          "city": "Seattle"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_apartments"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 0.0,
+          "reason": "Mismatch 'city': expected='Seattle', got='New York'",
+          "expected": {
+            "city": "Seattle",
+            "bedrooms": 2,
+            "max_price": 2500
+          },
+          "actual": {
+            "city": "New York",
+            "max_price": 3000,
+            "bedrooms": 1
+          }
+        }
+      ]
+    },
+    "response": "I found a 2-bedroom apartment in Seattle for $2,400 a month.",
+    "pass": false
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "housing_03"
+    "scenario_id": "housing_03",
+    "domain": "housing_location",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "max_price",
+          "value": 1800
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "1800",
+          "filter_name": "max_price"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'value': expected=1800, got='1800'",
+          "expected": {
+            "filter_name": "max_price",
+            "value": 1800
+          },
+          "actual": {
+            "value": "1800",
+            "filter_name": "max_price"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your maximum price filter to $1,800 a month.",
+    "pass": false
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "housing_07"
+    "scenario_id": "housing_07",
+    "domain": "housing_location",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "Central Ave",
+          "destination_address": "University",
+          "mode": "transit"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "destination_address": "University",
+          "mode": "transit",
+          "origin_address": "Central Ave"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "calculate_commute",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "origin_address": "Central Ave",
+            "destination_address": "University",
+            "mode": "transit"
+          },
+          "actual": {
+            "destination_address": "University",
+            "mode": "transit",
+            "origin_address": "Central Ave"
+          }
+        }
+      ]
+    },
+    "response": "The transit commute from Central Ave to the University takes about 25 minutes.",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "housing_10"
+    "scenario_id": "housing_10",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "500 Central Ave",
+          "destination_address": "University",
+          "mode": "transit"
+        }
+      },
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "neighborhood",
+          "value": "Northside"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "mode": "transit",
+          "destination_address": "University",
+          "origin_address": "500 Central Ave"
+        }
+      },
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "Northside",
+          "filter_name": "neighborhood"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "calculate_commute",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "origin_address": "500 Central Ave",
+            "destination_address": "University",
+            "mode": "transit"
+          },
+          "actual": {
+            "mode": "transit",
+            "destination_address": "University",
+            "origin_address": "500 Central Ave"
+          }
+        },
+        {
+          "function": "update_search_filter",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "filter_name": "neighborhood",
+            "value": "Northside"
+          },
+          "actual": {
+            "value": "Northside",
+            "filter_name": "neighborhood"
+          }
+        }
+      ]
+    },
+    "response": "The transit commute from 500 Central Ave to the University is about 25 minutes. I've also updated your preferred neighborhood filter to Northside.",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "housing_14"
+    "scenario_id": "housing_14",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Portland",
+          "bedrooms": 1,
+          "max_price": 1800,
+          "pets_allowed": true
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "max_price": 1800,
+          "bedrooms": 1,
+          "city": "Portland"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 0.0,
+          "reason": "Missing arg: pets_allowed",
+          "expected": {
+            "city": "Portland",
+            "bedrooms": 1,
+            "max_price": 1800,
+            "pets_allowed": true
+          },
+          "actual": {
+            "max_price": 1800,
+            "bedrooms": 1,
+            "city": "Portland"
+          }
+        }
+      ]
+    },
+    "response": "I found a 1-bedroom apartment in Portland for $1,700 per month (APT1). Would you like me to get more details on this one for you?",
+    "pass": false
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "ecommerce_01"
+    "scenario_id": "ecommerce_01",
+    "domain": "ecommerce_support",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "ABC123"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "ABC123"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "ABC123"
+          },
+          "actual": {
+            "order_id": "ABC123"
+          }
+        }
+      ]
+    },
+    "response": "Your order ABC123 is currently out for delivery and should arrive soon!",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "ecommerce_04"
+    "scenario_id": "ecommerce_04",
+    "domain": "ecommerce_support",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "XYZ88"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "XYZ88"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "XYZ88"
+          },
+          "actual": {
+            "order_id": "XYZ88"
+          }
+        }
+      ]
+    },
+    "response": "Your package with order number XYZ88 is currently out for delivery and should arrive today.",
+    "pass": true
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "ecommerce_08"
+    "scenario_id": "ecommerce_08",
+    "domain": "ecommerce_support",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "mechanical keyboards",
+          "max_price": 200
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "keyboard"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "max_price": 200,
+          "query": "mechanical keyboard"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_products"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 0.0,
+          "reason": "Mismatch 'query': expected='mechanical keyboards', got='keyboard'",
+          "expected": {
+            "query": "mechanical keyboards",
+            "max_price": 200
+          },
+          "actual": {
+            "query": "keyboard"
+          }
+        }
+      ]
+    },
+    "response": "I found the Mechanical Keyboard Premium for $190, which is under your $200 budget. Would you like me to add it to your cart?",
+    "pass": false
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "ecommerce_11"
+    "scenario_id": "ecommerce_11",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "B7",
+          "quantity": 1
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "B-7",
+          "quantity": 1
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'product_id': expected='B7', got='B-7'",
+          "expected": {
+            "product_id": "B7",
+            "quantity": 1
+          },
+          "actual": {
+            "product_id": "B-7",
+            "quantity": 1
+          }
+        }
+      ]
+    },
+    "response": "I've added 1 of product B-7 to your cart. Your current cart total is $99.99.",
+    "pass": false
   },
   {
-    "error": "Error code: 404 - [{'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).', 'status': 'NOT_FOUND'}}]",
-    "model": "gemini-2.0-flash",
-    "scenario_id": "ecommerce_15"
+    "scenario_id": "ecommerce_15",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FILLER",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "BOB12"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "BOB12"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "BOB12"
+          },
+          "actual": {
+            "order_id": "BOB12"
+          }
+        }
+      ]
+    },
+    "response": "Your order BOB12 is currently out for delivery and should arrive soon!",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_02",
+    "domain": "travel_identity",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "passport",
+          "doc_number": "P9-9-9-90011"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "NEW",
+          "doc_type": "passport"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "passport",
+          "doc_number": "P88990011"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "update_identity_doc"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "update_identity_doc",
+          "score": 0.0,
+          "reason": "Mismatch 'doc_number': expected='P9-9-9-90011', got='NEW'",
+          "expected": {
+            "doc_type": "passport",
+            "doc_number": "P9-9-9-90011"
+          },
+          "actual": {
+            "doc_number": "NEW",
+            "doc_type": "passport"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your passport number in the system.",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_03",
+    "domain": "travel_identity",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "London",
+          "date": "August 20"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "London",
+          "date": "2026-08-20"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "London",
+            "date": "August 20"
+          },
+          "actual": {
+            "destination": "London",
+            "date": "2026-08-20"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to London on August 20th for $450, flight ID FL123. Would you like me to book that for you?",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_04",
+    "domain": "travel_identity",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "visa",
+          "doc_number": "V123456"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "V-123456",
+          "doc_type": "visa"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "update_identity_doc",
+          "score": 0.0,
+          "reason": "Mismatch 'doc_number': expected='V123456', got='V-123456'",
+          "expected": {
+            "doc_type": "visa",
+            "doc_number": "V123456"
+          },
+          "actual": {
+            "doc_number": "V-123456",
+            "doc_type": "visa"
+          }
+        }
+      ]
+    },
+    "response": "Your visa document has been successfully updated with number V-123456.",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_06",
+    "domain": "travel_identity",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Denver",
+          "date": "January 15"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Taylor Reed"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2025-01-15",
+          "destination": "Denver"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Taylor Reed"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Denver",
+            "date": "January 15"
+          },
+          "actual": {
+            "date": "2025-01-15",
+            "destination": "Denver"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "passenger_name": "Taylor Reed"
+          },
+          "actual": {
+            "passenger_name": "Taylor Reed"
+          }
+        }
+      ]
+    },
+    "response": "I've successfully booked your flight to Denver for January 15th, Taylor. Your booking reference is B789. Have a great trip!",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_07",
+    "domain": "travel_identity",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "driver_license",
+          "doc_number": "DL555"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "NEW",
+          "doc_type": "driver_license"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "DL555",
+          "doc_type": "driver_license"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "update_identity_doc"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "update_identity_doc",
+          "score": 0.0,
+          "reason": "Mismatch 'doc_number': expected='DL555', got='NEW'",
+          "expected": {
+            "doc_type": "driver_license",
+            "doc_number": "DL555"
+          },
+          "actual": {
+            "doc_number": "NEW",
+            "doc_type": "driver_license"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your driver's license number to DL555.",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_08",
+    "domain": "travel_identity",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Seattle",
+          "date": "November 1"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Seattle",
+          "date": "2026-11-01"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Seattle",
+            "date": "November 1"
+          },
+          "actual": {
+            "destination": "Seattle",
+            "date": "2026-11-01"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Seattle on November 1st for $450 (Flight FL123). Would you like me to book it for you?",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_10",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FILLER",
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Miami",
+          "date": "October 7"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Miami",
+          "date": "2026-04-01"
+        }
+      },
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Miami",
+          "date": "2026-10-07"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_flights"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 0.0,
+          "reason": "Mismatch 'date': expected='October 7', got='2026-04-01'",
+          "expected": {
+            "destination": "Miami",
+            "date": "October 7"
+          },
+          "actual": {
+            "destination": "Miami",
+            "date": "2026-04-01"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Miami for October 7th, 2026, for $450. Would you like me to book it?",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_11",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Austin",
+          "date": "February 2"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Morgan Smith"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "London",
+          "date": "2026-08-20"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "colleague"
+        }
+      },
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Austin",
+          "date": "2026-02-02"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Morgan Smith"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 2,
+      "expected": 2,
+      "actual": 4,
+      "missing": [],
+      "extra": [
+        "search_flights",
+        "book_flight"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 0.0,
+          "reason": "Mismatch 'destination': expected='Austin', got='London'",
+          "expected": {
+            "destination": "Austin",
+            "date": "February 2"
+          },
+          "actual": {
+            "destination": "London",
+            "date": "2026-08-20"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 0.0,
+          "reason": "Mismatch 'passenger_name': expected='Morgan Smith', got='colleague'",
+          "expected": {
+            "passenger_name": "Morgan Smith"
+          },
+          "actual": {
+            "passenger_name": "colleague"
+          }
+        }
+      ]
+    },
+    "response": "I've booked the flight to Austin for Morgan Smith.",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_13",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Denver",
+          "date": "January 15"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2025-01-15",
+          "destination": "Denver"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Denver",
+            "date": "January 15"
+          },
+          "actual": {
+            "date": "2025-01-15",
+            "destination": "Denver"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Denver on January 15th for $450. Would you like me to book it for you?",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_14",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "HESITATION",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Seoul",
+          "date": "March 22"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Seoul",
+          "date": "2026-03-22"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Seoul",
+            "date": "March 22"
+          },
+          "actual": {
+            "destination": "Seoul",
+            "date": "2026-03-22"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Seoul on March 22nd for $450 (Flight ID: FL123). Would you like me to go ahead and book this for you?",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_15",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "driver_license",
+          "doc_number": "DL555"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "passport",
+          "doc_number": "P999"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "DL555",
+          "doc_type": "driver_license"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "P999",
+          "doc_type": "passport"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "update_identity_doc",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "doc_type": "driver_license",
+            "doc_number": "DL555"
+          },
+          "actual": {
+            "doc_number": "DL555",
+            "doc_type": "driver_license"
+          }
+        },
+        {
+          "function": "update_identity_doc",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "doc_type": "passport",
+            "doc_number": "P999"
+          },
+          "actual": {
+            "doc_number": "P999",
+            "doc_type": "passport"
+          }
+        }
+      ]
+    },
+    "response": "I've successfully updated both your driver's license and passport numbers.",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_16",
+    "domain": "travel_identity",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Las Vegas",
+          "date": "August 8"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Vegas",
+          "date": "2026-08-08"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Alex"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "book_flight"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 0.0,
+          "reason": "Mismatch 'destination': expected='Las Vegas', got='Vegas'",
+          "expected": {
+            "destination": "Las Vegas",
+            "date": "August 8"
+          },
+          "actual": {
+            "destination": "Vegas",
+            "date": "2026-08-08"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Vegas for August 8th and went ahead and booked it for you under booking reference B789.",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_18",
+    "domain": "travel_identity",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Dubai",
+          "date": "April 10"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Casey Lee"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "passport",
+          "doc_number": "E772211"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Dubai",
+          "date": "2026-04-10"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "E772211",
+          "doc_type": "passport"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Casey Lee"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Dubai",
+            "date": "April 10"
+          },
+          "actual": {
+            "destination": "Dubai",
+            "date": "2026-04-10"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "passenger_name": "Casey Lee"
+          },
+          "actual": {
+            "passenger_name": "Casey Lee"
+          }
+        },
+        {
+          "function": "update_identity_doc",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "doc_type": "passport",
+            "doc_number": "E772211"
+          },
+          "actual": {
+            "doc_number": "E772211",
+            "doc_type": "passport"
+          }
+        }
+      ]
+    },
+    "response": " z\nI've successfully updated your passport number and booked your flight to Dubai for April 10th under the name Casey Lee with booking reference B789.",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_19",
+    "domain": "travel_identity",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Milan",
+          "date": "June 3"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2026-06-03",
+          "destination": "Milan"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Milan",
+            "date": "June 3"
+          },
+          "actual": {
+            "date": "2026-06-03",
+            "destination": "Milan"
+          }
+        }
+      ]
+    },
+    "response": "I found a flight to Milan on June 3rd, 2026, for $450. Would you like me to book it for you?",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_20",
+    "domain": "travel_identity",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Toronto",
+          "date": "July 20"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Riley Kim"
+        },
+        "note": "Only if flight < $300"
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "driver_license",
+          "doc_number": "DL88"
+        },
+        "note": "Only if no cheap flight"
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2026-07-20",
+          "destination": "Toronto"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "DL88",
+          "doc_type": "driver license"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.8,
+      "recall": 0.667,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 3,
+      "actual": 2,
+      "missing": [
+        "book_flight"
+      ],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.667,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Toronto",
+            "date": "July 20"
+          },
+          "actual": {
+            "date": "2026-07-20",
+            "destination": "Toronto"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 0.0,
+          "reason": "not called"
+        },
+        {
+          "function": "update_identity_doc",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "doc_type": "driver_license",
+            "doc_number": "DL88"
+          },
+          "actual": {
+            "doc_number": "DL88",
+            "doc_type": "driver license"
+          }
+        }
+      ]
+    },
+    "response": "The flight to Toronto was $450, which is over your $300 limit, so I didn't book it. Instead, I've successfully updated your driver's license number to DL88.",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_21",
+    "domain": "travel_identity",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "PAUSE",
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Las Vegas",
+          "date": "August 8"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Quinn Davis"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "visa",
+          "doc_number": "V77"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2026-08-08",
+          "destination": "Vegas"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "V-7-7",
+          "doc_type": "visa"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Quinn Davis"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.333,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 0.0,
+          "reason": "Mismatch 'destination': expected='Las Vegas', got='Vegas'",
+          "expected": {
+            "destination": "Las Vegas",
+            "date": "August 8"
+          },
+          "actual": {
+            "date": "2026-08-08",
+            "destination": "Vegas"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "passenger_name": "Quinn Davis"
+          },
+          "actual": {
+            "passenger_name": "Quinn Davis"
+          }
+        },
+        {
+          "function": "update_identity_doc",
+          "score": 0.0,
+          "reason": "Mismatch 'doc_number': expected='V77', got='V-7-7'",
+          "expected": {
+            "doc_type": "visa",
+            "doc_number": "V77"
+          },
+          "actual": {
+            "doc_number": "V-7-7",
+            "doc_type": "visa"
+          }
+        }
+      ]
+    },
+    "response": "I've successfully updated your visa number and booked your flight to Vegas for August 8th under the name Quinn Davis. Your booking reference is B789.",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_22",
+    "domain": "travel_identity",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Melbourne",
+          "date": "September 4"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Alex Chen"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Melbourne",
+          "date": "2026-09-04"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Alex Chen"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Melbourne",
+            "date": "September 4"
+          },
+          "actual": {
+            "destination": "Melbourne",
+            "date": "2026-09-04"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "passenger_name": "Alex Chen"
+          },
+          "actual": {
+            "passenger_name": "Alex Chen"
+          }
+        }
+      ]
+    },
+    "response": "I've booked your flight to Melbourne for September 4th, 2026, for Alex Chen. Your booking reference is B789.",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_23",
+    "domain": "travel_identity",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "passport",
+          "doc_number": "P1122"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "driver_license",
+          "doc_number": "DL9090"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "passport",
+          "doc_number": "P1122"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "driver license",
+          "doc_number": "DL9090"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "update_identity_doc",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "doc_type": "passport",
+            "doc_number": "P1122"
+          },
+          "actual": {
+            "doc_type": "passport",
+            "doc_number": "P1122"
+          }
+        },
+        {
+          "function": "update_identity_doc",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "doc_type": "driver_license",
+            "doc_number": "DL9090"
+          },
+          "actual": {
+            "doc_type": "driver license",
+            "doc_number": "DL9090"
+          }
+        }
+      ]
+    },
+    "response": "I've successfully updated both your passport and driver's license with your new document numbers.",
+    "pass": true
+  },
+  {
+    "scenario_id": "travel_24",
+    "domain": "travel_identity",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Vancouver",
+          "date": "November 5"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Skyler"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "visa",
+          "doc_number": "V44"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2026-11-05",
+          "destination": "Vancouver"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Skyler"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "visa",
+          "doc_number": "V-4-4"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.667,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Vancouver",
+            "date": "November 5"
+          },
+          "actual": {
+            "date": "2026-11-05",
+            "destination": "Vancouver"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "passenger_name": "Skyler"
+          },
+          "actual": {
+            "passenger_name": "Skyler"
+          }
+        },
+        {
+          "function": "update_identity_doc",
+          "score": 0.0,
+          "reason": "Mismatch 'doc_number': expected='V44', got='V-4-4'",
+          "expected": {
+            "doc_type": "visa",
+            "doc_number": "V44"
+          },
+          "actual": {
+            "doc_type": "visa",
+            "doc_number": "V-4-4"
+          }
+        }
+      ]
+    },
+    "response": "I've successfully booked your flight to Vancouver for November 5th under the name Skyler, and updated your visa number as requested.",
+    "pass": false
+  },
+  {
+    "scenario_id": "travel_25",
+    "domain": "travel_identity",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "destination": "Bangkok",
+          "date": "March 1"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Cameron"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "passport",
+          "doc_number": "P123"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_type": "visa",
+          "doc_number": "V321"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_flights",
+        "args": {
+          "date": "2026-03-01",
+          "destination": "Bangkok"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "P-1-2-3",
+          "doc_type": "passport"
+        }
+      },
+      {
+        "function": "update_identity_doc",
+        "args": {
+          "doc_number": "V-3-2-1",
+          "doc_type": "visa"
+        }
+      },
+      {
+        "function": "book_flight",
+        "args": {
+          "passenger_name": "Cameron"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 4,
+      "expected": 4,
+      "actual": 4,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.5,
+      "details": [
+        {
+          "function": "search_flights",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "destination": "Bangkok",
+            "date": "March 1"
+          },
+          "actual": {
+            "date": "2026-03-01",
+            "destination": "Bangkok"
+          }
+        },
+        {
+          "function": "book_flight",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "passenger_name": "Cameron"
+          },
+          "actual": {
+            "passenger_name": "Cameron"
+          }
+        },
+        {
+          "function": "update_identity_doc",
+          "score": 0.0,
+          "reason": "Mismatch 'doc_number': expected='P123', got='P-1-2-3'",
+          "expected": {
+            "doc_type": "passport",
+            "doc_number": "P123"
+          },
+          "actual": {
+            "doc_number": "P-1-2-3",
+            "doc_type": "passport"
+          }
+        },
+        {
+          "function": "update_identity_doc",
+          "score": 0.0,
+          "reason": "Mismatch 'doc_number': expected='V321', got='V-3-2-1'",
+          "expected": {
+            "doc_type": "visa",
+            "doc_number": "V321"
+          },
+          "actual": {
+            "doc_number": "V-3-2-1",
+            "doc_type": "visa"
+          }
+        }
+      ]
+    },
+    "response": "I've successfully updated your passport and visa documents, and booked the flight to Bangkok for Cameron under confirmation reference B789. Is there anything else you need help with?",
+    "pass": false
+  },
+  {
+    "scenario_id": "finance_02",
+    "domain": "finance_billing",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "platinum"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "platinum"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_card_benefits",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "card_type": "platinum"
+          },
+          "actual": {
+            "card_type": "platinum"
+          }
+        }
+      ]
+    },
+    "response": "The Platinum card offers 2% cashback on all purchases and has no foreign transaction fees.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_03",
+    "domain": "finance_billing",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "credit_card",
+          "source_account": "checking"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "savings",
+          "bill_type": "mortgage"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "modify_autopay"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "modify_autopay",
+          "score": 0.0,
+          "reason": "Mismatch 'bill_type': expected='mortgage', got='credit_card'",
+          "expected": {
+            "bill_type": "mortgage",
+            "source_account": "savings"
+          },
+          "actual": {
+            "bill_type": "credit_card",
+            "source_account": "checking"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your mortgage autopay to pull from your savings account.",
+    "pass": false
+  },
+  {
+    "scenario_id": "finance_05",
+    "domain": "finance_billing",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "credit_card",
+          "source_account": "checking"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "checking",
+          "bill_type": "credit_card"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "checking",
+          "bill_type": "credit_card"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "modify_autopay"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "modify_autopay",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bill_type": "credit_card",
+            "source_account": "checking"
+          },
+          "actual": {
+            "source_account": "checking",
+            "bill_type": "credit_card"
+          }
+        }
+      ]
+    },
+    "response": "I've already set up your credit card autopay from your checking account! Is there anything else you need help with?",
+    "pass": false
+  },
+  {
+    "scenario_id": "finance_06",
+    "domain": "finance_billing",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FILLER",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "travel"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "travel"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_card_benefits",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "card_type": "travel"
+          },
+          "actual": {
+            "card_type": "travel"
+          }
+        }
+      ]
+    },
+    "response": "The travel card comes with two great benefits: 2% cashback on purchases and no foreign transaction fees.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_07",
+    "domain": "finance_billing",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "savings",
+          "bill_type": "mortgage"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "modify_autopay",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bill_type": "mortgage",
+            "source_account": "savings"
+          },
+          "actual": {
+            "source_account": "savings",
+            "bill_type": "mortgage"
+          }
+        }
+      ]
+    },
+    "response": "I've successfully updated your mortgage autopay to pull from your savings account.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_09",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 300,
+          "from_currency": "USD",
+          "to_currency": "EUR"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "from_currency": "USD",
+          "amount": 300,
+          "to_currency": "EUR"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 300,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          },
+          "actual": {
+            "from_currency": "USD",
+            "amount": 300,
+            "to_currency": "EUR"
+          }
+        }
+      ]
+    },
+    "response": "300 US dollars is equal to 270 euros, at an exchange rate of 0.9.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_10",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "travel"
+        }
+      },
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 200,
+          "from_currency": "GBP",
+          "to_currency": "JPY"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "travel"
+        }
+      },
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "from_currency": "GBP",
+          "amount": 200,
+          "to_currency": "JPY"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_card_benefits",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "card_type": "travel"
+          },
+          "actual": {
+            "card_type": "travel"
+          }
+        },
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 200,
+            "from_currency": "GBP",
+            "to_currency": "JPY"
+          },
+          "actual": {
+            "from_currency": "GBP",
+            "amount": 200,
+            "to_currency": "JPY"
+          }
+        }
+      ]
+    },
+    "response": "The travel card offers 2% cashback and no foreign transaction fees. And 200 British pounds is equivalent to 180 Japanese yen.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_12",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 150,
+          "from_currency": "EUR",
+          "to_currency": "USD"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "to_currency": "USD",
+          "from_currency": "EUR",
+          "amount": 150
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 150,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "actual": {
+            "to_currency": "USD",
+            "from_currency": "EUR",
+            "amount": 150
+          }
+        }
+      ]
+    },
+    "response": "150 euros is equivalent to 165 US dollars, based on the current exchange rate of 1.1.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_13",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "HESITATION",
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "credit_card",
+          "source_account": "savings"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "checking"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "checking",
+          "bill_type": "credit_card"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "savings",
+          "bill_type": "credit_ card"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "checking",
+          "bill_type": "mortgage"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.8,
+      "recall": 1.0,
+      "precision": 0.667,
+      "matched": 2,
+      "expected": 2,
+      "actual": 3,
+      "missing": [],
+      "extra": [
+        "modify_autopay"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "modify_autopay",
+          "score": 0.0,
+          "reason": "Mismatch 'source_account': expected='savings', got='checking'",
+          "expected": {
+            "bill_type": "credit_card",
+            "source_account": "savings"
+          },
+          "actual": {
+            "source_account": "checking",
+            "bill_type": "credit_card"
+          }
+        },
+        {
+          "function": "modify_autopay",
+          "score": 0.0,
+          "reason": "Mismatch 'bill_type': expected='mortgage', got='credit_ card'",
+          "expected": {
+            "bill_type": "mortgage",
+            "source_account": "checking"
+          },
+          "actual": {
+            "source_account": "savings",
+            "bill_type": "credit_ card"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your credit card autopay to pull from savings, and your mortgage to pull from checking.",
+    "pass": false
+  },
+  {
+    "scenario_id": "finance_14",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 50,
+          "from_currency": "USD",
+          "to_currency": "EUR"
+        }
+      },
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 100,
+          "from_currency": "CAD",
+          "to_currency": "USD"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "from_currency": "USD",
+          "to_currency": "EUR",
+          "amount": 50
+        }
+      },
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 100,
+          "from_currency": "CAD",
+          "to_currency": "USD"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 50,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          },
+          "actual": {
+            "from_currency": "USD",
+            "to_currency": "EUR",
+            "amount": 50
+          }
+        },
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 100,
+            "from_currency": "CAD",
+            "to_currency": "USD"
+          },
+          "actual": {
+            "amount": 100,
+            "from_currency": "CAD",
+            "to_currency": "USD"
+          }
+        }
+      ]
+    },
+    "response": "50 US dollars is 45 euros, and 100 Canadian dollars is 90 US dollars.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_16",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "HESITATION",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 500,
+          "from_currency": "JPY",
+          "to_currency": "USD"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 500,
+          "to_currency": "USD",
+          "from_currency": "JPY"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 500,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "actual": {
+            "amount": 500,
+            "to_currency": "USD",
+            "from_currency": "JPY"
+          }
+        }
+      ]
+    },
+    "response": "500 yen is approximately 450 US dollars.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_17",
+    "domain": "finance_billing",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "gold"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "gold"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_card_benefits",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "card_type": "gold"
+          },
+          "actual": {
+            "card_type": "gold"
+          }
+        }
+      ]
+    },
+    "response": "Your Gold card comes with 2% cashback on purchases and no foreign transaction fees.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_18",
+    "domain": "finance_billing",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 1000,
+          "from_currency": "USD",
+          "to_currency": "EUR"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "credit_card",
+          "source_account": "savings"
+        }
+      },
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "premium"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "to_currency": "EUR",
+          "amount": 1000,
+          "from_currency": "USD"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "savings",
+          "bill_type": "credit_card"
+        }
+      },
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "premium"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 1000,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          },
+          "actual": {
+            "to_currency": "EUR",
+            "amount": 1000,
+            "from_currency": "USD"
+          }
+        },
+        {
+          "function": "modify_autopay",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bill_type": "credit_card",
+            "source_account": "savings"
+          },
+          "actual": {
+            "source_account": "savings",
+            "bill_type": "credit_card"
+          }
+        },
+        {
+          "function": "get_card_benefits",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "card_type": "premium"
+          },
+          "actual": {
+            "card_type": "premium"
+          }
+        }
+      ]
+    },
+    "response": "1,000 US dollars is currently 900 euros. I've also updated your credit card autopay to pull from your savings account. Finally, the premium card includes 2% cashback and no foreign transaction fees.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_19",
+    "domain": "finance_billing",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 300,
+          "from_currency": "EUR",
+          "to_currency": "GBP"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "to_currency": "GBP",
+          "from_currency": "EUR",
+          "amount": 300
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 300,
+            "from_currency": "EUR",
+            "to_currency": "GBP"
+          },
+          "actual": {
+            "to_currency": "GBP",
+            "from_currency": "EUR",
+            "amount": 300
+          }
+        }
+      ]
+    },
+    "response": "300 euros converts to 330 British pounds at the current exchange rate of 1.1.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_20",
+    "domain": "finance_billing",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 1000,
+          "from_currency": "USD",
+          "to_currency": "EUR"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "checking"
+        },
+        "note": "Only if rate is favorable"
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "to_currency": "EUR",
+          "amount": 1000,
+          "from_currency": "USD"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "checking",
+          "bill_type": "mortgage"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 1000,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          },
+          "actual": {
+            "to_currency": "EUR",
+            "amount": 1000,
+            "from_currency": "USD"
+          }
+        },
+        {
+          "function": "modify_autopay",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bill_type": "mortgage",
+            "source_account": "checking"
+          },
+          "actual": {
+            "source_account": "checking",
+            "bill_type": "mortgage"
+          }
+        }
+      ]
+    },
+    "response": "The current exchange rate is 0.90 EUR per USD, giving you 900.0 EUR for $1,000. Since you wanted to proceed if the rate looked good, I've successfully updated your mortgage autopay to pull from your c",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_21",
+    "domain": "finance_billing",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "gold"
+        }
+      },
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 500,
+          "from_currency": "USD",
+          "to_currency": "JPY"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "gold"
+        }
+      },
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "from_currency": "USD",
+          "to_currency": "JPY",
+          "amount": 500
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_card_benefits",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "card_type": "gold"
+          },
+          "actual": {
+            "card_type": "gold"
+          }
+        },
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 500,
+            "from_currency": "USD",
+            "to_currency": "JPY"
+          },
+          "actual": {
+            "from_currency": "USD",
+            "to_currency": "JPY",
+            "amount": 500
+          }
+        }
+      ]
+    },
+    "response": "The Gold Card comes with 2% cashback and no foreign transaction fees. And for your currency conversion, 500 US dollars converts to 450 yen based on the current exchange rate.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_22",
+    "domain": "finance_billing",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "credit_card",
+          "source_account": "checking"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "credit_card",
+          "source_account": "checking"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "modify_autopay",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bill_type": "mortgage",
+            "source_account": "savings"
+          },
+          "actual": {
+            "bill_type": "mortgage",
+            "source_account": "savings"
+          }
+        },
+        {
+          "function": "modify_autopay",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bill_type": "credit_card",
+            "source_account": "checking"
+          },
+          "actual": {
+            "bill_type": "credit_card",
+            "source_account": "checking"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your mortgage autopay to pull from your savings account, and your credit card payment to pull from your checking account.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_23",
+    "domain": "finance_billing",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FALSE_START",
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "modify_autopay",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bill_type": "mortgage",
+            "source_account": "savings"
+          },
+          "actual": {
+            "bill_type": "mortgage",
+            "source_account": "savings"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your mortgage autopay to pull from your savings account.",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_24",
+    "domain": "finance_billing",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 250,
+          "from_currency": "USD",
+          "to_currency": "CAD"
+        }
+      },
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "rewards"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 250,
+          "from_currency": "USD",
+          "to_currency": "CAD"
+        }
+      },
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "rewards"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 250,
+            "from_currency": "USD",
+            "to_currency": "CAD"
+          },
+          "actual": {
+            "amount": 250,
+            "from_currency": "USD",
+            "to_currency": "CAD"
+          }
+        },
+        {
+          "function": "get_card_benefits",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "card_type": "rewards"
+          },
+          "actual": {
+            "card_type": "rewards"
+          }
+        }
+      ]
+    },
+    "response": "250 US dollars is 225 Canadian dollars at the current exchange rate. Regarding your rewards card, the benefits include 2% cashback and no foreign transaction fees. As for sending a wire transfer to yo",
+    "pass": true
+  },
+  {
+    "scenario_id": "finance_25",
+    "domain": "finance_billing",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "PAUSE",
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "amount": 800,
+          "from_currency": "USD",
+          "to_currency": "EUR"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "bill_type": "mortgage",
+          "source_account": "savings"
+        }
+      },
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "platinum"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "get_exchange_rate",
+        "args": {
+          "to_currency": "EUR",
+          "amount": 800,
+          "from_currency": "USD"
+        }
+      },
+      {
+        "function": "modify_autopay",
+        "args": {
+          "source_account": "savings",
+          "bill_type": "mortgage"
+        }
+      },
+      {
+        "function": "get_card_benefits",
+        "args": {
+          "card_type": "platinum"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "get_exchange_rate",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "amount": 800,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          },
+          "actual": {
+            "to_currency": "EUR",
+            "amount": 800,
+            "from_currency": "USD"
+          }
+        },
+        {
+          "function": "modify_autopay",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bill_type": "mortgage",
+            "source_account": "savings"
+          },
+          "actual": {
+            "source_account": "savings",
+            "bill_type": "mortgage"
+          }
+        },
+        {
+          "function": "get_card_benefits",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "card_type": "platinum"
+          },
+          "actual": {
+            "card_type": "platinum"
+          }
+        }
+      ]
+    },
+    "response": "$800 USD converts to \u20ac720 at the current rate of 0.9. Your mortgage autopay has been successfully set to your savings account. And for the platinum card, your benefits include 2% cashback and no forei",
+    "pass": true
+  },
+  {
+    "scenario_id": "housing_02",
+    "domain": "housing_location",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "101 Main Street",
+          "destination_address": "Downtown Office",
+          "mode": "driving"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "destination_address": "Downtown Office",
+          "origin_address": "101 Main Street",
+          "mode": "driving"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "calculate_commute",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "origin_address": "101 Main Street",
+            "destination_address": "Downtown Office",
+            "mode": "driving"
+          },
+          "actual": {
+            "destination_address": "Downtown Office",
+            "origin_address": "101 Main Street",
+            "mode": "driving"
+          }
+        }
+      ]
+    },
+    "response": "Driving from 101 Main Street to the Downtown Office takes about 25 minutes. If you'd like to check out apartments in the area, just let me know your target city, budget, and number of bedrooms!",
+    "pass": true
+  },
+  {
+    "scenario_id": "housing_04",
+    "domain": "housing_location",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Denver",
+          "bedrooms": 1
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "bedrooms": 1,
+          "city": "Denver",
+          "max_price": 2500
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Denver",
+          "max_price": 2500,
+          "bedrooms": 1
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_apartments"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "city": "Denver",
+            "bedrooms": 1
+          },
+          "actual": {
+            "bedrooms": 1,
+            "city": "Denver",
+            "max_price": 2500
+          }
+        }
+      ]
+    },
+    "response": "I found a 1-bedroom apartment in Denver for $2,400 a month.",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_05",
+    "domain": "housing_location",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "HESITATION",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Miami",
+          "max_price": 1500,
+          "pets_allowed": true
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "pets_allowed",
+          "value": "true"
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "bedrooms": 1,
+          "max_price": 1500,
+          "city": "Miami"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "update_search_filter"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 0.0,
+          "reason": "Missing arg: pets_allowed",
+          "expected": {
+            "city": "Miami",
+            "max_price": 1500,
+            "pets_allowed": true
+          },
+          "actual": {
+            "bedrooms": 1,
+            "max_price": 1500,
+            "city": "Miami"
+          }
+        }
+      ]
+    },
+    "response": "I found a 1-bedroom apartment in Miami for $1,400 a month. Would you like me to look for anything else?",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_06",
+    "domain": "housing_location",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "Oak Street",
+          "destination_address": "Gym",
+          "mode": "walking"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "Oak Street",
+          "mode": "walking",
+          "destination_address": "Gym"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "calculate_commute",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "origin_address": "Oak Street",
+            "destination_address": "Gym",
+            "mode": "walking"
+          },
+          "actual": {
+            "origin_address": "Oak Street",
+            "mode": "walking",
+            "destination_address": "Gym"
+          }
+        }
+      ]
+    },
+    "response": "It will take about 25 minutes to walk from Oak Street to the gym.",
+    "pass": true
+  },
+  {
+    "scenario_id": "housing_08",
+    "domain": "housing_location",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "pets_allowed",
+          "value": true
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "true",
+          "filter_name": "pets_allowed"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'value': expected=True, got='true'",
+          "expected": {
+            "filter_name": "pets_allowed",
+            "value": true
+          },
+          "actual": {
+            "value": "true",
+            "filter_name": "pets_allowed"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your search filter to only show places that allow pets. What city, how many bedrooms, and what's your maximum monthly rent budget?",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_09",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Chicago",
+          "bedrooms": 2,
+          "max_price": 2000
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "bedrooms": 2,
+          "city": "Chicago",
+          "max_price": 2000
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "city": "Chicago",
+            "bedrooms": 2,
+            "max_price": 2000
+          },
+          "actual": {
+            "bedrooms": 2,
+            "city": "Chicago",
+            "max_price": 2000
+          }
+        }
+      ]
+    },
+    "response": "I found a 2-bedroom apartment in Chicago for $1,900 per month.",
+    "pass": true
+  },
+  {
+    "scenario_id": "housing_11",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Austin",
+          "bedrooms": 2,
+          "max_price": 1600
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "max_price": 1600,
+          "bedrooms": 2,
+          "city": "Austin"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "city": "Austin",
+            "bedrooms": 2,
+            "max_price": 1600
+          },
+          "actual": {
+            "max_price": 1600,
+            "bedrooms": 2,
+            "city": "Austin"
+          }
+        }
+      ]
+    },
+    "response": "I found one 2-bedroom apartment in Austin within your $1,600 budget, priced at $1,500 a month (ID: APT1). Would you like any more details?",
+    "pass": true
+  },
+  {
+    "scenario_id": "housing_12",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "HESITATION",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "apartment",
+          "destination_address": "airport",
+          "mode": "transit"
+        }
+      }
+    ],
+    "actual_calls": [],
+    "tool_selection_f1": {
+      "f1": 0.0,
+      "recall": 0.0,
+      "precision": 1.0,
+      "matched": 0,
+      "expected": 1,
+      "actual": 0,
+      "missing": [
+        "calculate_commute"
+      ],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "calculate_commute",
+          "score": 0.0,
+          "reason": "not called"
+        }
+      ]
+    },
+    "response": "To calculate your transit commute, could you please provide your apartment address (or origin) and the airport name or address?",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_13",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "max_price",
+          "value": 3000
+        }
+      },
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "min_bedrooms",
+          "value": 3
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "3000",
+          "filter_name": "max_price"
+        }
+      },
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "bedrooms",
+          "value": "3"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'value': expected=3000, got='3000'",
+          "expected": {
+            "filter_name": "max_price",
+            "value": 3000
+          },
+          "actual": {
+            "value": "3000",
+            "filter_name": "max_price"
+          }
+        },
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'filter_name': expected='min_bedrooms', got='bedrooms'",
+          "expected": {
+            "filter_name": "min_bedrooms",
+            "value": 3
+          },
+          "actual": {
+            "filter_name": "bedrooms",
+            "value": "3"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your search filters to a maximum price of $3,000 per month and a minimum of 3 bedrooms.",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_15",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Atlanta",
+          "bedrooms": 3,
+          "pets_allowed": true
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "bedrooms": 3,
+          "max_price": 5000,
+          "city": "Atlanta"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 0.0,
+          "reason": "Missing arg: pets_allowed",
+          "expected": {
+            "city": "Atlanta",
+            "bedrooms": 3,
+            "pets_allowed": true
+          },
+          "actual": {
+            "bedrooms": 3,
+            "max_price": 5000,
+            "city": "Atlanta"
+          }
+        }
+      ]
+    },
+    "response": "I found one 3-bedroom apartment in Atlanta within your budget priced at $4,900 a month. Would you like me to help you with anything else?",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_16",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FILLER",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "my apartment",
+          "destination_address": "hospital",
+          "mode": "driving"
+        }
+      }
+    ],
+    "actual_calls": [],
+    "tool_selection_f1": {
+      "f1": 0.0,
+      "recall": 0.0,
+      "precision": 1.0,
+      "matched": 0,
+      "expected": 1,
+      "actual": 0,
+      "missing": [
+        "calculate_commute"
+      ],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "calculate_commute",
+          "score": 0.0,
+          "reason": "not called"
+        }
+      ]
+    },
+    "response": "Could you please tell me the origin address of your apartment and the address or name of the hospital?",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_17",
+    "domain": "housing_location",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "my house",
+          "destination_address": "the office",
+          "mode": "driving"
+        }
+      }
+    ],
+    "actual_calls": [],
+    "tool_selection_f1": {
+      "f1": 0.0,
+      "recall": 0.0,
+      "precision": 1.0,
+      "matched": 0,
+      "expected": 1,
+      "actual": 0,
+      "missing": [
+        "calculate_commute"
+      ],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "calculate_commute",
+          "score": 0.0,
+          "reason": "not called"
+        }
+      ]
+    },
+    "response": "Could you please provide your home address and your office address?",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_18",
+    "domain": "housing_location",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Portland",
+          "bedrooms": 1,
+          "max_price": 1800
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "$RESULT_0.cheapest_apartment_address",
+          "destination_address": "coffee shop on 5th",
+          "mode": "biking"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "bedrooms": 1,
+          "city": "Portland",
+          "max_price": 1800
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "APT1, Portland",
+          "mode": "bicycling",
+          "destination_address": "Coffee Shop, 5th Street, Portland"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.5,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "city": "Portland",
+            "bedrooms": 1,
+            "max_price": 1800
+          },
+          "actual": {
+            "bedrooms": 1,
+            "city": "Portland",
+            "max_price": 1800
+          }
+        },
+        {
+          "function": "calculate_commute",
+          "score": 0.0,
+          "reason": "Mismatch 'destination_address': expected='coffee shop on 5th', got='Coffee Shop, 5th Street, Portland'",
+          "expected": {
+            "origin_address": "$RESULT_0.cheapest_apartment_address",
+            "destination_address": "coffee shop on 5th",
+            "mode": "biking"
+          },
+          "actual": {
+            "origin_address": "APT1, Portland",
+            "mode": "bicycling",
+            "destination_address": "Coffee Shop, 5th Street, Portland"
+          }
+        }
+      ]
+    },
+    "response": ".",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_19",
+    "domain": "housing_location",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "my house",
+          "destination_address": "the gym",
+          "mode": "driving"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "calculate_commute",
+        "args": {
+          "mode": "driving",
+          "origin_address": "house",
+          "destination_address": "gym"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "calculate_commute",
+          "score": 0.0,
+          "reason": "Mismatch 'origin_address': expected='my house', got='house'",
+          "expected": {
+            "origin_address": "my house",
+            "destination_address": "the gym",
+            "mode": "driving"
+          },
+          "actual": {
+            "mode": "driving",
+            "origin_address": "house",
+            "destination_address": "gym"
+          }
+        }
+      ]
+    },
+    "response": "Your drive to the gym will take about 25 minutes.",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_20",
+    "domain": "housing_location",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Austin",
+          "max_price": 2000
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "$RESULT_0.apartments[0].address",
+          "destination_address": "my office",
+          "mode": "driving"
+        }
+      },
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "max_price",
+          "value": 2500
+        },
+        "note": "Only if commute > 15 min"
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "max_price": 2000,
+          "bedrooms": 1,
+          "city": "Austin"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.5,
+      "recall": 0.333,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 3,
+      "actual": 1,
+      "missing": [
+        "calculate_commute",
+        "update_search_filter"
+      ],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.333,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "city": "Austin",
+            "max_price": 2000
+          },
+          "actual": {
+            "max_price": 2000,
+            "bedrooms": 1,
+            "city": "Austin"
+          }
+        },
+        {
+          "function": "calculate_commute",
+          "score": 0.0,
+          "reason": "not called"
+        },
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "not called"
+        }
+      ]
+    },
+    "response": "I found some apartments in Austin under $2,000. Could you please provide your office address and the address of the apartment so I can check your commute time?",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_21",
+    "domain": "housing_location",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "bedrooms": 3
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "$RESULT_0.apartments[0].address",
+          "destination_address": "train station",
+          "mode": "walking"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_apartments",
+        "args": {
+          "bedrooms": 3,
+          "max_price": 5000,
+          "city": "city"
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "destination_address": "train station",
+          "origin_address": "APT1",
+          "mode": "walking"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "bedrooms": 3
+          },
+          "actual": {
+            "bedrooms": 3,
+            "max_price": 5000,
+            "city": "city"
+          }
+        },
+        {
+          "function": "calculate_commute",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "origin_address": "$RESULT_0.apartments[0].address",
+            "destination_address": "train station",
+            "mode": "walking"
+          },
+          "actual": {
+            "destination_address": "train station",
+            "origin_address": "APT1",
+            "mode": "walking"
+          }
+        }
+      ]
+    },
+    "response": "I found a 3-bedroom apartment for $4,900 per month, and the walking commute time to the train station is 25 minutes. Would you like to schedule a tour?",
+    "pass": true
+  },
+  {
+    "scenario_id": "housing_22",
+    "domain": "housing_location",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "pets_allowed",
+          "value": true
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Seattle",
+          "bedrooms": 1
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "$RESULT_1.apartments[0].address",
+          "destination_address": "the stadium",
+          "mode": "transit"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "true",
+          "filter_name": "pets_allowed"
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "max_price": 5000,
+          "city": "Seattle",
+          "bedrooms": 1
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "APT1 Seattle",
+          "destination_address": "Seattle stadium"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.333,
+      "details": [
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'value': expected=True, got='true'",
+          "expected": {
+            "filter_name": "pets_allowed",
+            "value": true
+          },
+          "actual": {
+            "value": "true",
+            "filter_name": "pets_allowed"
+          }
+        },
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "city": "Seattle",
+            "bedrooms": 1
+          },
+          "actual": {
+            "max_price": 5000,
+            "city": "Seattle",
+            "bedrooms": 1
+          }
+        },
+        {
+          "function": "calculate_commute",
+          "score": 0.0,
+          "reason": "Mismatch 'destination_address': expected='the stadium', got='Seattle stadium'",
+          "expected": {
+            "origin_address": "$RESULT_1.apartments[0].address",
+            "destination_address": "the stadium",
+            "mode": "transit"
+          },
+          "actual": {
+            "origin_address": "APT1 Seattle",
+            "destination_address": "Seattle stadium"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your search filter to allow pets and found a 1-bedroom apartment in Seattle priced at $4,900 per month (ID: APT1). The driving commute time from that apartment to the stadium is about 25 ",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_23",
+    "domain": "housing_location",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FALSE_START",
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "min_bedrooms",
+          "value": 3
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "3",
+          "filter_name": "bedrooms"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'filter_name': expected='min_bedrooms', got='bedrooms'",
+          "expected": {
+            "filter_name": "min_bedrooms",
+            "value": 3
+          },
+          "actual": {
+            "value": "3",
+            "filter_name": "bedrooms"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your minimum bedrooms filter to 3. What city and maximum rent budget would you like to search with?",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_24",
+    "domain": "housing_location",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "PAUSE",
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "max_price",
+          "value": 1500
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "Dallas"
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "origin_address": "$RESULT_1.apartments[0].address",
+          "destination_address": "the grocery store",
+          "mode": "walking"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "1500",
+          "filter_name": "max_price"
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "max_price": 1500,
+          "city": "Dallas"
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "max_price": 1500,
+          "city": "Dallas",
+          "bedrooms": 1
+        }
+      },
+      {
+        "function": "calculate_commute",
+        "args": {
+          "mode": "walking",
+          "origin_address": "APT1 Dallas",
+          "destination_address": "nearest grocery store"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.857,
+      "recall": 1.0,
+      "precision": 0.75,
+      "matched": 3,
+      "expected": 3,
+      "actual": 4,
+      "missing": [],
+      "extra": [
+        "search_apartments"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.333,
+      "details": [
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'value': expected=1500, got='1500'",
+          "expected": {
+            "filter_name": "max_price",
+            "value": 1500
+          },
+          "actual": {
+            "value": "1500",
+            "filter_name": "max_price"
+          }
+        },
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "city": "Dallas"
+          },
+          "actual": {
+            "max_price": 1500,
+            "city": "Dallas"
+          }
+        },
+        {
+          "function": "calculate_commute",
+          "score": 0.0,
+          "reason": "Mismatch 'destination_address': expected='the grocery store', got='nearest grocery store'",
+          "expected": {
+            "origin_address": "$RESULT_1.apartments[0].address",
+            "destination_address": "the grocery store",
+            "mode": "walking"
+          },
+          "actual": {
+            "mode": "walking",
+            "origin_address": "APT1 Dallas",
+            "destination_address": "nearest grocery store"
+          }
+        }
+      ]
+    },
+    "response": "I've updated your max price to $1,500. I found a 1-bedroom apartment in Dallas for $1,400 per month (Apartment ID: APT1), and the walking time from there to the nearest grocery store is 25 minutes.",
+    "pass": false
+  },
+  {
+    "scenario_id": "housing_25",
+    "domain": "housing_location",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "pets_allowed",
+          "value": true
+        }
+      },
+      {
+        "function": "update_search_filter",
+        "args": {
+          "filter_name": "max_price",
+          "value": 3500
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "San Francisco"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "true",
+          "filter_name": "pets_allowed"
+        }
+      },
+      {
+        "function": "update_search_filter",
+        "args": {
+          "value": "3500",
+          "filter_name": "max_price"
+        }
+      },
+      {
+        "function": "search_apartments",
+        "args": {
+          "city": "San Francisco",
+          "bedrooms": 1,
+          "max_price": 3500
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.333,
+      "details": [
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'value': expected=True, got='true'",
+          "expected": {
+            "filter_name": "pets_allowed",
+            "value": true
+          },
+          "actual": {
+            "value": "true",
+            "filter_name": "pets_allowed"
+          }
+        },
+        {
+          "function": "update_search_filter",
+          "score": 0.0,
+          "reason": "Mismatch 'value': expected=3500, got='3500'",
+          "expected": {
+            "filter_name": "max_price",
+            "value": 3500
+          },
+          "actual": {
+            "value": "3500",
+            "filter_name": "max_price"
+          }
+        },
+        {
+          "function": "search_apartments",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "city": "San Francisco"
+          },
+          "actual": {
+            "city": "San Francisco",
+            "bedrooms": 1,
+            "max_price": 3500
+          }
+        }
+      ]
+    },
+    "response": "I've set your filters to allow pets with a maximum price of $3,500 and searched for apartments in San Francisco, finding one available option within your budget.",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_02",
+    "domain": "ecommerce_support",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "wireless headphones",
+          "max_price": 100
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "max_price": 100,
+          "query": "wireless headphones"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "query": "wireless headphones",
+            "max_price": 100
+          },
+          "actual": {
+            "max_price": 100,
+            "query": "wireless headphones"
+          }
+        }
+      ]
+    },
+    "response": "I found the wireless headphones Premium for $90. Would you like me to add them to your cart?",
+    "pass": true
+  },
+  {
+    "scenario_id": "ecommerce_03",
+    "domain": "ecommerce_support",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "P99",
+          "quantity": 1
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "P-9-9",
+          "quantity": 1
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'product_id': expected='P99', got='P-9-9'",
+          "expected": {
+            "product_id": "P99",
+            "quantity": 1
+          },
+          "actual": {
+            "product_id": "P-9-9",
+            "quantity": 1
+          }
+        }
+      ]
+    },
+    "response": "I've added product P-9-9 to your cart. Your current cart total is $99.99. Is there anything else you need?",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_05",
+    "domain": "ecommerce_support",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FILLER",
+      "HESITATION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "desk",
+          "max_price": 300
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "home office"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "max_price": 300,
+          "query": "desk"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_products"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 0.0,
+          "reason": "Mismatch 'query': expected='desk', got='home office'",
+          "expected": {
+            "query": "desk",
+            "max_price": 300
+          },
+          "actual": {
+            "query": "home office"
+          }
+        }
+      ]
+    },
+    "response": "I found the Desk Premium for $290. Would you like me to add it to your cart?",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_06",
+    "domain": "ecommerce_support",
+    "difficulty": "easy",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "K2",
+          "quantity": 2
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "K-2"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "quantity": 2,
+          "product_id": "PROD1"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_products"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'product_id': expected='K2', got='PROD1'",
+          "expected": {
+            "product_id": "K2",
+            "quantity": 2
+          },
+          "actual": {
+            "quantity": 2,
+            "product_id": "PROD1"
+          }
+        }
+      ]
+    },
+    "response": "I've added 2 of the K-2 Premium items to your cart. Your cart total is $199.98.",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_07",
+    "domain": "ecommerce_support",
+    "difficulty": "easy",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "FAST99"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "FAST99"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "FAST99"
+          },
+          "actual": {
+            "order_id": "FAST99"
+          }
+        }
+      ]
+    },
+    "response": "Your order FAST99 is currently out for delivery.",
+    "pass": true
+  },
+  {
+    "scenario_id": "ecommerce_09",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "hiking boots"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "outdoor trip gear"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "hiking boots"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_products"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 0.0,
+          "reason": "Mismatch 'query': expected='hiking boots', got='outdoor trip gear'",
+          "expected": {
+            "query": "hiking boots"
+          },
+          "actual": {
+            "query": "outdoor trip gear"
+          }
+        }
+      ]
+    },
+    "response": "I found the Premium hiking boots for $99.99. Would you like me to add them to your cart?",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_10",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "123ABC"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "winter jackets",
+          "max_price": 150
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "123ABC"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "max_price": 150,
+          "query": "winter jacket"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.5,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "123ABC"
+          },
+          "actual": {
+            "order_id": "123ABC"
+          }
+        },
+        {
+          "function": "search_products",
+          "score": 0.0,
+          "reason": "Mismatch 'query': expected='winter jackets', got='winter jacket'",
+          "expected": {
+            "query": "winter jackets",
+            "max_price": 150
+          },
+          "actual": {
+            "max_price": 150,
+            "query": "winter jacket"
+          }
+        }
+      ]
+    },
+    "response": "Your order 123ABC is currently out for delivery. I also found the winter jacket Premium priced at $140.",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_12",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "HESITATION",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "gift",
+          "category": "electronics"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "birthday gift"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "electronics gadgets tech"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_products"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 0.0,
+          "reason": "Mismatch 'query': expected='gift', got='birthday gift'",
+          "expected": {
+            "query": "gift",
+            "category": "electronics"
+          },
+          "actual": {
+            "query": "birthday gift"
+          }
+        }
+      ]
+    },
+    "response": "I found a tech gadget product in our catalog for $99.99. Would you like me to add it to your cart?",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_13",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "K2",
+          "quantity": 1
+        }
+      },
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "DELIV"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "K-2",
+          "quantity": 1
+        }
+      },
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "DELIV"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.5,
+      "details": [
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'product_id': expected='K2', got='K-2'",
+          "expected": {
+            "product_id": "K2",
+            "quantity": 1
+          },
+          "actual": {
+            "product_id": "K-2",
+            "quantity": 1
+          }
+        },
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "DELIV"
+          },
+          "actual": {
+            "order_id": "DELIV"
+          }
+        }
+      ]
+    },
+    "response": "I've added item K-2 to your cart, and your order DELIV is currently out for delivery!",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_14",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "P52",
+          "quantity": 2
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "P-5-2",
+          "quantity": 2
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'product_id': expected='P52', got='P-5-2'",
+          "expected": {
+            "product_id": "P52",
+            "quantity": 2
+          },
+          "actual": {
+            "product_id": "P-5-2",
+            "quantity": 2
+          }
+        }
+      ]
+    },
+    "response": "I've added 2 of item P-5-2 to your cart. Your current cart total is $199.98. Is there anything else you need?",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_16",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "HESITATION",
+      "PAUSE"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "coffee maker",
+          "max_price": 50
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "kitchen"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "max_price": 50,
+          "query": "coffee maker"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.667,
+      "recall": 1.0,
+      "precision": 0.5,
+      "matched": 1,
+      "expected": 1,
+      "actual": 2,
+      "missing": [],
+      "extra": [
+        "search_products"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 0.0,
+          "reason": "Mismatch 'query': expected='coffee maker', got='kitchen'",
+          "expected": {
+            "query": "coffee maker",
+            "max_price": 50
+          },
+          "actual": {
+            "query": "kitchen"
+          }
+        }
+      ]
+    },
+    "response": "I found a coffee maker for $40. Would you like me to add it to your cart?",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_17",
+    "domain": "ecommerce_support",
+    "difficulty": "medium",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "GG5"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "GG5"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 1,
+      "expected": 1,
+      "actual": 1,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "GG5"
+          },
+          "actual": {
+            "order_id": "GG5"
+          }
+        }
+      ]
+    },
+    "response": "Order GG5 is currently out for delivery.",
+    "pass": true
+  },
+  {
+    "scenario_id": "ecommerce_18",
+    "domain": "ecommerce_support",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "gaming mouse"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "$RESULT_0.cheapest_product_id",
+          "quantity": 1
+        }
+      },
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "PO999"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "gaming mouse"
+        }
+      },
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "PO999"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "PROD1",
+          "quantity": 1
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "query": "gaming mouse"
+          },
+          "actual": {
+            "query": "gaming mouse"
+          }
+        },
+        {
+          "function": "add_to_cart",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "product_id": "$RESULT_0.cheapest_product_id",
+            "quantity": 1
+          },
+          "actual": {
+            "product_id": "PROD1",
+            "quantity": 1
+          }
+        },
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "PO999"
+          },
+          "actual": {
+            "order_id": "PO999"
+          }
+        }
+      ]
+    },
+    "response": "I found the gaming mouse and added the cheapest option to your cart. As for order PO999, it's currently out for delivery! What's next?",
+    "pass": true
+  },
+  {
+    "scenario_id": "ecommerce_19",
+    "domain": "ecommerce_support",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "tablet"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "$RESULT_0.products[0].product_id",
+          "quantity": 1
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "tablet"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "PROD1",
+          "quantity": 1
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "query": "tablet"
+          },
+          "actual": {
+            "query": "tablet"
+          }
+        },
+        {
+          "function": "add_to_cart",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "product_id": "$RESULT_0.products[0].product_id",
+            "quantity": 1
+          },
+          "actual": {
+            "product_id": "PROD1",
+            "quantity": 1
+          }
+        }
+      ]
+    },
+    "response": "I've found the tablet Premium and added 1 to your cart. Your current cart total is $99.99.",
+    "pass": true
+  },
+  {
+    "scenario_id": "ecommerce_20",
+    "domain": "ecommerce_support",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "query": "coffee maker"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "$RESULT_0.products[0].product_id",
+          "quantity": 2
+        },
+        "note": "Only if price < 50, otherwise track order WWW"
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "search_products",
+        "args": {
+          "max_price": 50,
+          "query": "coffee maker"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "PROD1",
+          "quantity": 2
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 1.0,
+      "details": [
+        {
+          "function": "search_products",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "query": "coffee maker"
+          },
+          "actual": {
+            "max_price": 50,
+            "query": "coffee maker"
+          }
+        },
+        {
+          "function": "add_to_cart",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "product_id": "$RESULT_0.products[0].product_id",
+            "quantity": 2
+          },
+          "actual": {
+            "product_id": "PROD1",
+            "quantity": 2
+          }
+        }
+      ]
+    },
+    "response": "I found a coffee maker priced at $40, so I went ahead and added two of them to your cart.",
+    "pass": true
+  },
+  {
+    "scenario_id": "ecommerce_21",
+    "domain": "ecommerce_support",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "BOB"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "watch",
+          "max_price": 200
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "$RESULT_1.products[0].product_id",
+          "quantity": 1
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "BOB"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "watch",
+          "max_price": 200
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "PROD1"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "PROD1",
+          "quantity": 1
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.857,
+      "recall": 1.0,
+      "precision": 0.75,
+      "matched": 3,
+      "expected": 3,
+      "actual": 4,
+      "missing": [],
+      "extra": [
+        "add_to_cart"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.667,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "BOB"
+          },
+          "actual": {
+            "order_id": "BOB"
+          }
+        },
+        {
+          "function": "search_products",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "query": "watch",
+            "max_price": 200
+          },
+          "actual": {
+            "query": "watch",
+            "max_price": 200
+          }
+        },
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Missing arg: quantity",
+          "expected": {
+            "product_id": "$RESULT_1.products[0].product_id",
+            "quantity": 1
+          },
+          "actual": {
+            "product_id": "PROD1"
+          }
+        }
+      ]
+    },
+    "response": "Your order BOB is currently out for delivery. I also found the Premium Watch for $190 and added it to your cart! Is there anything else you need?",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_22",
+    "domain": "ecommerce_support",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FILLER"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "A1"
+        }
+      },
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "B2"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "blanket"
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "A-1"
+        }
+      },
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "B-2"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "cozy blanket"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 3,
+      "expected": 3,
+      "actual": 3,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 0.0,
+          "reason": "Mismatch 'order_id': expected='A1', got='A-1'",
+          "expected": {
+            "order_id": "A1"
+          },
+          "actual": {
+            "order_id": "A-1"
+          }
+        },
+        {
+          "function": "track_order",
+          "score": 0.0,
+          "reason": "Mismatch 'order_id': expected='B2', got='B-2'",
+          "expected": {
+            "order_id": "B2"
+          },
+          "actual": {
+            "order_id": "B-2"
+          }
+        },
+        {
+          "function": "search_products",
+          "score": 0.0,
+          "reason": "Mismatch 'query': expected='blanket', got='cozy blanket'",
+          "expected": {
+            "query": "blanket"
+          },
+          "actual": {
+            "query": "cozy blanket"
+          }
+        }
+      ]
+    },
+    "response": "Order A-1 and order B-2 are both out for delivery. I also found the cozy blanket Premium for $99.99. Would you like me to add it to your cart?",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_23",
+    "domain": "ecommerce_support",
+    "difficulty": "hard",
+    "disfluency_features": [],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "GG5"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "X1",
+          "quantity": 1
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "GG5"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "X-1"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "quantity": 1,
+          "product_id": "X-1"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.8,
+      "recall": 1.0,
+      "precision": 0.667,
+      "matched": 2,
+      "expected": 2,
+      "actual": 3,
+      "missing": [],
+      "extra": [
+        "add_to_cart"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.5,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "GG5"
+          },
+          "actual": {
+            "order_id": "GG5"
+          }
+        },
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'product_id': expected='X1', got='X-1'",
+          "expected": {
+            "product_id": "X1",
+            "quantity": 1
+          },
+          "actual": {
+            "product_id": "X-1"
+          }
+        }
+      ]
+    },
+    "response": "I've checked order GG5\u2014it's currently out for delivery. I've also successfully added item X-1 to your shopping cart for your replacement. As for processing a refund, I can't issue refunds directly rig",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_24",
+    "domain": "ecommerce_support",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "SELF_CORRECTION"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "K9",
+          "quantity": 2
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "M1",
+          "quantity": 5
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "K-9",
+          "quantity": 2
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "M-1",
+          "quantity": 5
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "matched": 2,
+      "expected": 2,
+      "actual": 2,
+      "missing": [],
+      "extra": []
+    },
+    "argument_accuracy": {
+      "score": 0.0,
+      "details": [
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'product_id': expected='K9', got='K-9'",
+          "expected": {
+            "product_id": "K9",
+            "quantity": 2
+          },
+          "actual": {
+            "product_id": "K-9",
+            "quantity": 2
+          }
+        },
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'product_id': expected='M1', got='M-1'",
+          "expected": {
+            "product_id": "M1",
+            "quantity": 5
+          },
+          "actual": {
+            "product_id": "M-1",
+            "quantity": 5
+          }
+        }
+      ]
+    },
+    "response": "I've added 2 of item K-9 and 5 of item M-1 to your cart.",
+    "pass": false
+  },
+  {
+    "scenario_id": "ecommerce_25",
+    "domain": "ecommerce_support",
+    "difficulty": "hard",
+    "disfluency_features": [
+      "FALSE_START"
+    ],
+    "model": "gemini-3.5-flash-lite",
+    "expected_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "CAT"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "cat food"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "$RESULT_1.products[0].product_id",
+          "quantity": 3
+        }
+      }
+    ],
+    "actual_calls": [
+      {
+        "function": "track_order",
+        "args": {
+          "order_id": "CAT"
+        }
+      },
+      {
+        "function": "search_products",
+        "args": {
+          "query": "cat food"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "product_id": "PROD1",
+          "quantity": "3"
+        }
+      },
+      {
+        "function": "add_to_cart",
+        "args": {
+          "quantity": 3,
+          "product_id": "PROD1"
+        }
+      }
+    ],
+    "tool_selection_f1": {
+      "f1": 0.857,
+      "recall": 1.0,
+      "precision": 0.75,
+      "matched": 3,
+      "expected": 3,
+      "actual": 4,
+      "missing": [],
+      "extra": [
+        "add_to_cart"
+      ]
+    },
+    "argument_accuracy": {
+      "score": 0.667,
+      "details": [
+        {
+          "function": "track_order",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "order_id": "CAT"
+          },
+          "actual": {
+            "order_id": "CAT"
+          }
+        },
+        {
+          "function": "search_products",
+          "score": 1.0,
+          "reason": "ok",
+          "expected": {
+            "query": "cat food"
+          },
+          "actual": {
+            "query": "cat food"
+          }
+        },
+        {
+          "function": "add_to_cart",
+          "score": 0.0,
+          "reason": "Mismatch 'quantity': expected=3, got='3'",
+          "expected": {
+            "product_id": "$RESULT_1.products[0].product_id",
+            "quantity": 3
+          },
+          "actual": {
+            "product_id": "PROD1",
+            "quantity": "3"
+          }
+        }
+      ]
+    },
+    "response": "Your order CAT is currently out for delivery. I also searched for cat food and added 3 of the Premium cat food to your cart.",
+    "pass": false
   }
 ]

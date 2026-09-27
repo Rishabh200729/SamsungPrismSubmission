@@ -1,0 +1,15 @@
+<USER_REQUEST>
+i pulled from github , still why do i see module 1,2,3,4
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-26T16:55:53+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\ACER\Desktop\projects\SamsungProject\RESEARCH.md (LANGUAGE_MARKDOWN)
+Cursor is on line: 1
+Other open documents:
+- c:\Users\ACER\Desktop\projects\SamsungProject\RESEARCH.md (LANGUAGE_MARKDOWN)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from Claude Sonnet 4.6 (Thinking) to Gemini 3.8 Flash (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

@@ -143,6 +143,10 @@ class ToolDispatcher:
         self._provisional_cache: dict[str, ToolCall] = {}    # call_id → ToolCall (READ_ONLY)
         self._staged_queue:      list[ToolCall]       = []   # COMPENSABLE / IRREVERSIBLE
 
+        # Per-turn deduplication: tracks (name, sorted-args-json) of every dispatched call
+        # Prevents double-dispatch when model emits the same tool twice in one turn.
+        self._turn_call_history: list[tuple[str, str]] = []
+
         # Current gate state — updated by on_trp_state_change
         self._current_state: TRPState = TRPState.LISTENING
 
@@ -174,6 +178,19 @@ class ToolDispatcher:
             call.name, _abbrev_args(call.args), effect.name, self._current_state.name,
         )
 
+        # ── Per-turn deduplication ──────────────────────────────────────────
+        # If we've already dispatched the exact same (name, args) this turn, skip.
+        # This prevents double-dispatch when a model emits the same tool call twice.
+        call_sig = (call.name, json.dumps(call.args, sort_keys=True))
+        if call_sig in self._turn_call_history:
+            log.info(
+                "dispatcher: DEDUP — %s(%s) already dispatched this turn, discarding duplicate",
+                call.name, _abbrev_args(call.args),
+            )
+            call._resolution_future.set_result(_SUPERSEDED)
+            return await call._resolution_future
+        self._turn_call_history.append(call_sig)
+
         if effect == EffectClass.READ_ONLY:
             await self._handle_read_only(call)
         else:
@@ -192,9 +209,17 @@ class ToolDispatcher:
         # Check for superseded call: same tool already in cache (self-correction)
         existing = self._find_provisional_by_name(call.name)
         if existing is not None and not existing.committed:
+            # Log which args changed for debugging self-correction scenarios
+            old_args = existing.args
+            new_args = call.args
+            changed = {
+                k: {"old": old_args.get(k), "new": new_args.get(k)}
+                for k in set(old_args) | set(new_args)
+                if old_args.get(k) != new_args.get(k)
+            }
             log.info(
-                "dispatcher: %s already in cache — user corrected, superseding old call",
-                call.name,
+                "dispatcher: %s superseded by self-correction — args changed: %s",
+                call.name, changed,
             )
             if existing.speculative_task and not existing.speculative_task.done():
                 existing.speculative_task.cancel()
@@ -567,6 +592,7 @@ class ToolDispatcher:
                 call.speculative_task.cancel()
         self._provisional_cache.clear()
         self._staged_queue.clear()
+        self._turn_call_history.clear()   # reset dedup history for the new turn
         self._current_state = TRPState.LISTENING
 
 

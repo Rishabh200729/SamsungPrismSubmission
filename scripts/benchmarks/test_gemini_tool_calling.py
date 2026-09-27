@@ -33,32 +33,98 @@ import os, sys, json, time, math
 from pathlib import Path
 from typing import Optional
 
-# ── Load .env ────────────────────────────────────────────────────────────────
-_env_path = Path(__file__).parent / ".env"
+# Ensure UTF-8 output on Windows consoles
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+# ── Find Project Root & Load .env ──────────────────────────────────────────
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_env_path = PROJECT_ROOT / ".env"
+if not _env_path.exists():
+    # Fallback to local directory if present
+    _env_path = Path(__file__).parent / ".env"
+
 if _env_path.exists():
-    for line in _env_path.read_text().splitlines():
+    for line in _env_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             k, _, v = line.partition("=")
             if v.strip():
                 os.environ.setdefault(k.strip(), v.strip())
 
+# ── Multi-key pool: reads GOOGLE_API_KEY, GOOGLE_API_KEY_2, GOOGLE_API_KEY_3 … ─
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 if not GOOGLE_API_KEY:
     print("❌  GOOGLE_API_KEY not found in .env or environment.")
     print("   Add it to .env:  GOOGLE_API_KEY=AIza...")
     sys.exit(1)
 
-print(f"✅  GOOGLE_API_KEY found (starts with {GOOGLE_API_KEY[:8]}...)")
+_raw_keys = [GOOGLE_API_KEY]
+for _i in range(2, 10):
+    _k = os.environ.get(f"GOOGLE_API_KEY_{_i}", "")
+    if _k:
+        _raw_keys.append(_k)
+
+print(f"✅  GOOGLE_API_KEY found ({len(_raw_keys)} key(s) loaded, first starts with {GOOGLE_API_KEY[:8]}...)")  
+
+
+class ApiKeyPool:
+    """Round-robin API key pool with per-key cooldown on 429.
+
+    Usage:
+        pool = ApiKeyPool([key1, key2, key3])
+        key = pool.current()           # get active key
+        pool.rotate(cooldown_secs=60)  # mark current as rate-limited, move to next
+    """
+    def __init__(self, keys: list):
+        if not keys:
+            raise ValueError("ApiKeyPool requires at least one key")
+        self._keys = keys
+        self._idx = 0
+        # timestamps when each key is allowed to be used again
+        self._available_at = [0.0] * len(keys)
+
+    def current(self) -> str:
+        return self._keys[self._idx]
+
+    def rotate(self, cooldown_secs: float = 65.0) -> str:
+        """Mark the current key as exhausted for cooldown_secs, then pick
+        the next available key (cycling through the pool). Returns the new key."""
+        self._available_at[self._idx] = time.time() + cooldown_secs
+        n = len(self._keys)
+        for _ in range(n):
+            self._idx = (self._idx + 1) % n
+            if time.time() >= self._available_at[self._idx]:
+                return self._keys[self._idx]
+        # All keys in cooldown — just find the one that recovers soonest
+        soonest = min(range(n), key=lambda i: self._available_at[i])
+        wait = max(0.0, self._available_at[soonest] - time.time())
+        print(f" [all keys rate-limited, waiting {wait:.0f}s] ", end="", flush=True)
+        time.sleep(wait + 1)
+        self._idx = soonest
+        return self._keys[self._idx]
+
+    def describe(self) -> str:
+        return f"{len(self._keys)} key(s)"
+
+
+API_KEY_POOL = ApiKeyPool(_raw_keys)
 
 # ── Load benchmark scenarios ──────────────────────────────────────────────────
-_bench_path = Path(__file__).parent / "external/FDB-v3/v3/benchmark_data_v2.json"
-with open(_bench_path) as f:
+_bench_path = PROJECT_ROOT / "external/FDB-v3/v3/benchmark_data_v2.json"
+if not _bench_path.exists():
+    _bench_path = Path(__file__).parent / "external/FDB-v3/v3/benchmark_data_v2.json"
+
+with open(_bench_path, "r", encoding="utf-8") as f:
     _bench = json.load(f)
 ALL_SCENARIOS = {s["id"]: s for s in _bench["scenarios"]}
 
 # ── Mock API registry (FDB-v3's own) ─────────────────────────────────────────
-sys.path.insert(0, str(Path(__file__).parent / "external/FDB-v3/v3"))
+sys.path.insert(0, str(PROJECT_ROOT / "external/FDB-v3/v3"))
 try:
     from mock_apis import MockAPIRegistry
     REGISTRY = MockAPIRegistry(latency_profile="instant", enable_logging=False)
@@ -326,6 +392,28 @@ CRITICAL RULES:
 
 # ── Scoring (inline port of FDB-v3's evaluate_tool_calls.py) ─────────────────
 
+_MONTHS = ["january", "february", "march", "april", "may", "june",
+           "july", "august", "september", "october", "november", "december"]
+
+def normalize_date(s):
+    if not isinstance(s, str):
+        return None
+    s = s.strip()
+    parts = s.split("-")
+    if len(parts) == 3 and parts[0].isdigit() and len(parts[0]) == 4:
+        try:
+            return (int(parts[1]), int(parts[2]))
+        except ValueError:
+            pass
+    words = s.lower().replace(",", "").split()
+    if len(words) >= 2:
+        for idx, m in enumerate(_MONTHS, 1):
+            if m.startswith(words[0]) or words[0].startswith(m[:3]):
+                day_digits = "".join(ch for ch in words[1] if ch.isdigit())
+                if day_digits:
+                    return (idx, int(day_digits))
+    return None
+
 def normalize_val(v):
     if isinstance(v, str):
         return v.lower().strip().replace("_", " ")
@@ -337,6 +425,14 @@ def exact_match_args(expected: dict, actual: dict):
             return False, f"Missing arg: {key}"
         if isinstance(exp_val, str) and exp_val.startswith("$"):
             continue  # dynamic reference — any real value acceptable
+        
+        # Semantic date matching
+        if "date" in key.lower():
+            exp_d = normalize_date(str(exp_val))
+            act_d = normalize_date(str(actual.get(key)))
+            if exp_d and act_d and exp_d == act_d:
+                continue
+
         if normalize_val(exp_val) != normalize_val(actual.get(key)):
             return False, f"Mismatch '{key}': expected={exp_val!r}, got={actual.get(key)!r}"
     return True, "ok"
@@ -378,18 +474,23 @@ def argument_accuracy(expected_calls, actual_calls):
 
 # ── Gemini via OpenAI-compat endpoint ────────────────────────────────────────
 
-def run_scenario_gemini_compat(scenario: dict, model: str = "gemini-2.5-flash") -> dict:
+def run_scenario_gemini_compat(scenario: dict, model: str = "gemini-3.5-flash-lite") -> dict:
     """
     Test Gemini tool-calling via Google's OpenAI-compatibility endpoint.
     No audio — we feed the dialogue text directly (as if STT already ran).
     This isolates the LLM reasoning/tool-calling step.
+    Uses the global API_KEY_POOL and automatically rotates keys on 429.
     """
+    import re
     from openai import OpenAI
 
-    client = OpenAI(
-        api_key=GOOGLE_API_KEY,
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-    )
+    def make_client():
+        return OpenAI(
+            api_key=API_KEY_POOL.current(),
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+
+    client = make_client()
 
     # Build conversation from the scenario dialogue
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -406,7 +507,7 @@ def run_scenario_gemini_compat(scenario: dict, model: str = "gemini-2.5-flash") 
         # Agentic loop: let the model call tools until it produces a final response
         for _iteration in range(5):  # max 5 tool rounds per turn
             response = None
-            for attempt in range(5):
+            for attempt in range(8):  # up to 8 attempts (covers full key rotation)
                 try:
                     response = client.chat.completions.create(
                         model=model,
@@ -419,9 +520,22 @@ def run_scenario_gemini_compat(scenario: dict, model: str = "gemini-2.5-flash") 
                     break
                 except Exception as e:
                     err_str = str(e)
-                    if "429" in err_str or "503" in err_str or "RESOURCE_EXHAUSTED" in err_str or "UNAVAILABLE" in err_str:
-                        wait_s = 13 + attempt * 5
-                        print(f" [429/503 wait {wait_s}s] ", end="", flush=True)
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        # Try to rotate to the next API key first
+                        prev_key = API_KEY_POOL.current()[:8]
+                        new_key = API_KEY_POOL.rotate(cooldown_secs=65)
+                        client = make_client()
+                        if new_key[:8] != prev_key:
+                            print(f" [429→key rotated] ", end="", flush=True)
+                        else:
+                            # Rotated back to same key (only 1 key), wait instead
+                            m_delay = re.search(r"retryDelay['\"]:\s*['\"](\d+)s", err_str)
+                            wait_s = int(m_delay.group(1)) + 3 if m_delay else max(65, 30 + attempt * 15)
+                            print(f" [429 wait {wait_s}s] ", end="", flush=True)
+                            time.sleep(wait_s)
+                    elif "503" in err_str or "UNAVAILABLE" in err_str:
+                        wait_s = 10 + attempt * 5
+                        print(f" [503 wait {wait_s}s] ", end="", flush=True)
                         time.sleep(wait_s)
                     else:
                         return {"error": err_str, "model": model, "scenario_id": scenario["id"]}
@@ -483,22 +597,73 @@ def run_scenario_gemini_compat(scenario: dict, model: str = "gemini-2.5-flash") 
     }
 
 
-# ── Run all selected scenarios ────────────────────────────────────────────────
+# ── Result persistence (Merge & Update) ──────────────────────────────────────
 
-def run_all_tests(limit: int = 5):
+def load_existing_results(path: Path) -> dict:
+    """Load existing results into a dict keyed by scenario_id."""
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return {
+                    item["scenario_id"]: item
+                    for item in data
+                    if isinstance(item, dict) and "scenario_id" in item
+                }
+    except Exception as e:
+        print(f"⚠️  Could not read existing results from {path}: {e}")
+    return {}
+
+
+def save_merged_results(path: Path, results_dict: dict):
+    """Safely and atomically save merged results dictionary to JSON."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(list(results_dict.values()), f, indent=2, default=str)
+    try:
+        tmp_path.replace(path)
+    except PermissionError:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(list(results_dict.values()), f, indent=2, default=str)
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+# ── Run scenarios ─────────────────────────────────────────────────────────────
+
+def run_all_tests(
+    scenarios: list = None,
+    limit: int = None,
+    sleep_sec: float = 5.0,
+    model: str = "gemini-3.5-flash-lite",
+    out_path: Path = None,
+):
     print(f"\n{'='*60}")
     print("PART 1: GEMINI TOOL-CALLING TEST (OpenAI-compat endpoint)")
-    print(f"Model: gemini-2.5-flash")
-    test_set = SELECTED_SCENARIOS[:limit]
-    print(f"Scenarios: {len(test_set)} (representative sample)")
+    print(f"Model: {model}  |  API keys: {API_KEY_POOL.describe()}  |  Sleep: {sleep_sec}s between scenarios")
+    test_set = scenarios if scenarios is not None else SELECTED_SCENARIOS
+    if limit is not None:
+        test_set = test_set[:limit]
+    print(f"Scenarios to run: {len(test_set)}")
     print(f"{'='*60}\n")
+
+    results_by_id = {}
+    if out_path:
+        results_by_id = load_existing_results(out_path)
+        if results_by_id:
+            print(f"📂 Found {len(results_by_id)} previously saved scenario(s) in {out_path.name}")
 
     results = []
     for i, scenario in enumerate(test_set):
         print(f"[{i+1:2d}/{len(test_set)}] {scenario['id']:20s} "
               f"({scenario['difficulty']:6s}, {scenario['domain']:25s}) ... ", end="", flush=True)
         t0 = time.time()
-        r = run_scenario_gemini_compat(scenario)
+        r = run_scenario_gemini_compat(scenario, model=model)
         elapsed = time.time() - t0
 
         if "error" in r:
@@ -524,20 +689,26 @@ def run_all_tests(limit: int = 5):
                     print(f"        ↳ MISSING expected call: {missing}")
 
         results.append(r)
-        if i < len(test_set) - 1:
-            time.sleep(12)  # rate limit courtesy for 5 RPM free tier
+
+        # Incrementally update results file so no progress is lost
+        if out_path and "scenario_id" in r:
+            results_by_id[r["scenario_id"]] = r
+            save_merged_results(out_path, results_by_id)
+
+        if i < len(test_set) - 1 and sleep_sec > 0:
+            time.sleep(sleep_sec)
 
     return results
 
 
-def print_summary(results):
+def print_summary(results, title="SUMMARY"):
     valid = [r for r in results if "error" not in r]
     if not valid:
-        print("\n❌ All tests errored — no summary possible")
+        print(f"\n❌ All tests errored — no summary possible for {title}")
         return
 
     print(f"\n{'='*60}")
-    print("SUMMARY")
+    print(title)
     print(f"{'='*60}")
 
     # Overall
@@ -595,6 +766,8 @@ def print_summary(results):
         print(f"  Extra tool call:    {extra_tool}")
         print(f"  Wrong arguments:    {wrong_args}")
 
+
+def print_part2_analysis():
     print(f"\n{'='*60}")
     print("PART 2: JUDGE MODEL SWAP ANALYSIS")
     print(f"{'='*60}")
@@ -648,11 +821,80 @@ RECOMMENDATION:
 
 
 if __name__ == "__main__":
-    results = run_all_tests()
-    print_summary(results)
+    import argparse
+    default_out_path = Path(__file__).parent / "gemini_tool_calling_test_results.json"
 
-    # Save raw results
-    out_path = Path(__file__).parent / "gemini_tool_calling_test_results.json"
-    with open(out_path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
-    print(f"\n📄 Raw results saved to: {out_path}")
+    parser = argparse.ArgumentParser(description="Test Gemini Tool Calling across FDB-v3 Scenarios")
+    parser.add_argument("--all", action="store_true", help="Run across ALL 100 benchmark scenarios")
+    parser.add_argument("--batch", type=int, default=None, help="Batch number (1-based, e.g. --batch 2 for next 10 scenarios)")
+    parser.add_argument("--batch-size", type=int, default=10, help="Batch size when using --batch (default: 10)")
+    parser.add_argument("--offset", type=int, default=0, help="Offset to start running scenarios from")
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of scenarios to run")
+    parser.add_argument("--skip-existing", action="store_true", help="Skip scenarios already recorded in the results JSON")
+    parser.add_argument("--ids", type=str, default=None, help="Comma-separated scenario IDs to run (e.g. housing_01,ecommerce_04)")
+    parser.add_argument("--sleep", type=float, default=5.0, help="Seconds to sleep between calls (default: 5.0; 15 RPM limit needs ≥4s)")
+    parser.add_argument("--domain", type=str, default=None, help="Filter scenarios by domain (e.g. housing_location, ecommerce_support, travel_identity, finance_billing)")
+    parser.add_argument("--model", type=str, default="gemini-3.5-flash-lite", help="Gemini model name (default: gemini-3.5-flash-lite)")
+    parser.add_argument("--out", type=str, default=str(default_out_path), help="Path to JSON results file (updates and merges, never overwrites)")
+    args = parser.parse_args()
+
+    out_path = Path(args.out)
+
+    if args.ids:
+        selected_ids = [x.strip() for x in args.ids.split(",") if x.strip()]
+        target_scenarios = [ALL_SCENARIOS[sid] for sid in selected_ids if sid in ALL_SCENARIOS]
+    elif args.all:
+        target_scenarios = list(ALL_SCENARIOS.values())
+    else:
+        target_scenarios = list(SELECTED_SCENARIOS)
+
+    if args.domain:
+        target_scenarios = [s for s in target_scenarios if s.get("domain") == args.domain]
+
+    # Skip existing if requested (applied before batching/limit so slices take from remaining pool)
+    if args.skip_existing:
+        existing = load_existing_results(out_path)
+        valid_existing_ids = {sid for sid, item in existing.items() if "error" not in item}
+        before_len = len(target_scenarios)
+        target_scenarios = [s for s in target_scenarios if s["id"] not in valid_existing_ids]
+        skipped_count = before_len - len(target_scenarios)
+        if skipped_count > 0:
+            print(f"⏩ Skipped {skipped_count} scenario(s) already recorded in {out_path.name} (remaining untested: {len(target_scenarios)})")
+
+    # Handle batching
+    if args.batch is not None:
+        bsize = max(1, args.batch_size)
+        start_idx = (args.batch - 1) * bsize
+        end_idx = start_idx + bsize
+        total_pool = len(target_scenarios)
+        target_scenarios = target_scenarios[start_idx:end_idx]
+        print(f"📦 Batch {args.batch} (size={bsize}): selecting scenarios {start_idx + 1}..{min(end_idx, total_pool)} of {total_pool}")
+    else:
+        if args.offset > 0:
+            target_scenarios = target_scenarios[args.offset:]
+        if args.limit is not None:
+            target_scenarios = target_scenarios[:args.limit]
+
+    if not target_scenarios:
+        print(f"ℹ️  No scenarios to run (all matching scenarios already completed in {out_path.name}).")
+        existing = load_existing_results(out_path)
+        if existing:
+            print_summary(list(existing.values()), title=f"CUMULATIVE BENCHMARK SUMMARY ({len(existing)} scenarios in {out_path.name})")
+        sys.exit(0)
+
+    results = run_all_tests(
+        scenarios=target_scenarios,
+        sleep_sec=args.sleep,
+        model=args.model,
+        out_path=out_path,
+    )
+    print_summary(results, title="BATCH RUN SUMMARY")
+    print_part2_analysis()
+
+    # Show cumulative summary across all saved results if more than this batch
+    all_saved = load_existing_results(out_path)
+    if len(all_saved) > len(results):
+        print_summary(list(all_saved.values()), title=f"CUMULATIVE BENCHMARK SUMMARY ({len(all_saved)} total scenarios in {out_path.name})")
+
+    print(f"\n📄 Results updated and saved to: {out_path} ({len(results)} in this batch, {len(all_saved)} total in file)")
+

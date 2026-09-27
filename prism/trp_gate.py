@@ -37,15 +37,29 @@ log = logging.getLogger("prism.trp_gate")
 # This is a universal linguistic set, not tuned to specific benchmark scenarios.
 # ---------------------------------------------------------------------------
 
-_EDITING_TERMS_RE = re.compile(
+# TIER 1 — Strong self-correction signals (Levelt 1983: overt editing phase markers)
+# These indicate the user is actively changing their request → full 900 ms hold.
+_CORRECTION_TERMS_RE = re.compile(
     r"\b("
     r"wait|actually|no|sorry|scratch that|i mean|never mind|hold on"
-    r"|correction|let me correct|i meant|uh|um|er|hmm"
+    r"|correction|let me correct|i meant"
     r"|wait no|wait actually|oh wait|oh no"
     r"|rather|instead of|oops|make that|change that to"
+    r"|not [\w]+[,]? (but|i mean)"
     r")\b",
     re.IGNORECASE,
 )
+
+# TIER 2 — Filler disfluencies (Shriberg 1994: hesitation pauses, NOT repairs)
+# These indicate thinking, not necessarily a self-correction → shorter 500 ms slow-down.
+# Do NOT enter REPAIRING for these alone; just delay TRP confirmation slightly.
+_FILLER_TERMS_RE = re.compile(
+    r"\b(uh|um|er|hmm|like|you know)\b",
+    re.IGNORECASE,
+)
+
+# Backward compatibility alias
+_EDITING_TERMS_RE = _CORRECTION_TERMS_RE
 
 # Syntactic incompletion signals: a turn should NOT be confirmed if the last
 # meaningful token is one of these (dangling preposition / open phrase / conjunction).
@@ -90,6 +104,7 @@ class TRPGate:
         self._state:              TRPState = TRPState.LISTENING
         self._buffer:             str      = ""          # rolling transcript window
         self._last_editing_at:    float    = 0.0         # monotonic time of last editing term
+        self._correction_tier:    int      = 0           # 0=none, 1=strong correction, 2=filler only
         self._listeners:          List[Callable[[TRPState], Coroutine]] = []
         self._quiescence_task:    Optional[asyncio.Task] = None
 
@@ -131,29 +146,42 @@ class TRPGate:
         # Append to rolling buffer
         self._buffer = (self._buffer + " " + token.strip()).strip()
 
-        # ── Editing-term detection (Levelt 1983) ─────────────────────────
-        if _EDITING_TERMS_RE.search(token):
+        # ── TIER 1: Strong self-correction (Levelt 1983) ──────────────────
+        # "no wait", "actually", "scratch that", etc. → full REPAIRING state, 900 ms hold
+        if _CORRECTION_TERMS_RE.search(token):
             self._last_editing_at = time.monotonic()
+            self._correction_tier = 1
             if self._state != TRPState.REPAIRING:
                 log.info(
-                    "trp_gate: editing term detected in '%s' → REPAIRING (VAD inflated to %dms)",
+                    "trp_gate: CORRECTION (tier-1) detected in '%s' → REPAIRING (VAD inflated to %dms)",
                     token[:60], VAD_SILENCE_REPAIRING_MS,
                 )
                 await self._transition(TRPState.REPAIRING)
             self._schedule_quiescence_check()
-            return   # Don't try to confirm TRP on the same token that has an editing term
+            return   # Don't try to confirm TRP on the same token that triggered correction
+
+        # ── TIER 2: Filler words (Shriberg 1994) ──────────────────────────
+        # "um", "uh", "hmm" → mild delay only, stay in LISTENING (don't enter REPAIRING)
+        if _FILLER_TERMS_RE.search(token) and self._state == TRPState.LISTENING:
+            self._last_editing_at = time.monotonic()
+            if self._correction_tier < 1:   # don't downgrade an active strong correction
+                self._correction_tier = 2
+            self._schedule_quiescence_check()
+            return   # schedule a quiescence check but don't flip to REPAIRING
 
         # ── TRP confirmation heuristics ───────────────────────────────────
         # Only attempt confirmation if:
         #   1. is_final segment from ASR
-        #   2. No editing term fired in the last 800 ms
+        #   2. No editing term fired recently (tier-dependent threshold)
         #   3. Buffer doesn't end with a syntactically incomplete tail
         if is_final and self._state in (TRPState.LISTENING, TRPState.REPAIRING):
             quiescence_ms = (time.monotonic() - self._last_editing_at) * 1000
-            if quiescence_ms >= 800 and self._is_syntactically_complete(self._buffer):
+            # Use 800 ms threshold for strong corrections (tier 1), 400 ms for fillers (tier 2)
+            tier_threshold = 800 if self._correction_tier >= 1 else 400
+            if quiescence_ms >= tier_threshold and self._is_syntactically_complete(self._buffer):
                 log.info(
-                    "trp_gate: final token + complete buffer '%s…' → TRP_CONFIRMED",
-                    self._buffer[-40:],
+                    "trp_gate: final token + complete buffer '%s…' (tier=%d, quiescence=%.0fms) → TRP_CONFIRMED",
+                    self._buffer[-40:], self._correction_tier, quiescence_ms,
                 )
                 await self._transition(TRPState.TRP_CONFIRMED)
             elif self._state == TRPState.REPAIRING:
@@ -240,6 +268,7 @@ class TRPGate:
         self._state             = TRPState.LISTENING
         self._buffer            = ""
         self._last_editing_at   = 0.0
+        self._correction_tier   = 0   # reset tier for the new turn
 
     # -----------------------------------------------------------------------
     # Internal
