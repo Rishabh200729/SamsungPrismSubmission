@@ -6,7 +6,16 @@ import tempfile
 import unittest
 
 from prism import TRPState
-from agent.extension_incar import SilenceTicker, build_stack
+from agent.extension_incar import NavRegistry, SilenceTicker, build_stack, is_revision
+
+
+async def _wait_for(cond, timeout=3.0):
+    """Poll instead of sleeping fixed times, so slow machines cannot flake the tests."""
+    end = asyncio.get_running_loop().time() + timeout
+    while not cond():
+        if asyncio.get_running_loop().time() > end:
+            raise AssertionError("condition not met in time")
+        await asyncio.sleep(0.005)
 
 
 class InCarExtensionTests(unittest.IsolatedAsyncioTestCase):
@@ -22,6 +31,15 @@ class InCarExtensionTests(unittest.IsolatedAsyncioTestCase):
         await self.s.gate.on_transcript_token(f"Navigate to the {destination}.", True)
         return json.loads(await self.s.model_call("update_destination", destination=destination))
 
+    async def _two_committed_routes(self):
+        await self._commit_turn("downtown hotel")
+        self.s.new_turn()
+        await self._commit_turn("airport")
+        self.s.barge.set_agent_speaking(True)
+        await self.s.barge.on_user_speech_started()      # VAD onset while agent confirms
+
+    # -- supersession ----------------------------------------------------------
+
     async def test_stale_destination_never_reaches_vehicle(self):
         await self.s.gate.on_transcript_token("Take me to the city mall", False)
         stale = self.s.model_call("update_destination", destination="city mall")
@@ -32,24 +50,6 @@ class InCarExtensionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(stale_out)["status"], "superseded")
         self.assertEqual(json.loads(fresh_out)["destination"], "airport")
         self.assertEqual([m["to"] for m in self.s.nav.mutations], ["airport"])
-
-    async def test_barge_in_restores_previous_route(self):
-        await self._commit_turn("downtown hotel")
-        self.s.new_turn()
-        await self._commit_turn("airport")
-        self.s.barge.set_agent_speaking(True)
-        await self.s.barge.on_user_speech_started()
-        self.assertEqual(self.s.nav.active_destination, "downtown hotel")
-        self.assertEqual(self.s.session.interrupted, 1)
-
-    async def test_failed_update_compensation_does_not_clear_route(self):
-        await self._commit_turn("downtown hotel")
-        self.s.new_turn()
-        res = await self._commit_turn("atlantis")           # not_found, nothing changed
-        self.assertEqual(res["error"], "not_found")
-        self.s.barge.set_agent_speaking(True)
-        await self.s.barge.on_user_speech_started()          # compensates the failed call
-        self.assertEqual(self.s.nav.active_destination, "downtown hotel")
 
     async def test_readonly_query_superseded(self):
         await self.s.gate.on_transcript_token("Find a gas station", False)
@@ -78,25 +78,112 @@ class InCarExtensionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(out)["status"], "aborted")
         self.assertEqual(self.s.nav.mutations, [])
 
-    async def test_silence_ticker_holds_repair_until_900ms(self):
-        ticker = SilenceTicker(self.s.gate)
+    # -- intent-aware barge-in -------------------------------------------------
+
+    async def test_barge_in_onset_flushes_audio_but_defers_rollback(self):
+        await self._two_committed_routes()
+        self.assertEqual(self.s.session.interrupted, 1)
+        self.assertEqual(self.s.nav.active_destination, "airport")   # not decided yet
+        self.assertTrue(self.s.barge.awaiting_intent)
+
+    async def test_correction_after_barge_in_rolls_back(self):
+        await self._two_committed_routes()
+        await self.s.barge.on_interrupting_speech("Wait, no, go back")
+        self.assertEqual(self.s.nav.active_destination, "downtown hotel")
+        self.assertFalse(self.s.barge.awaiting_intent)
+
+    async def test_acknowledgement_after_barge_in_keeps_route(self):
+        await self._two_committed_routes()
+        await self.s.barge.on_interrupting_speech("Okay, thanks")
+        self.assertEqual(self.s.nav.active_destination, "airport")
+        self.assertEqual([m["op"] for m in self.s.nav.mutations], ["update_destination"] * 2)
+        self.assertFalse(self.s.saga.has_committed_mutations)        # no stale rollback left behind
+
+    async def test_new_command_before_transcript_still_rolls_back_first(self):
+        """Realtime models can call the tool before the ASR transcript event arrives."""
+        await self._two_committed_routes()
+        await self.s.gate.on_transcript_token("Take me to the central station.", True)
+        await self.s.model_call("update_destination", destination="central station")
+        self.assertEqual([m["to"] for m in self.s.nav.mutations],
+                         ["downtown hotel", "airport", "downtown hotel", "central station"])
+
+    async def test_cough_without_words_keeps_route(self):
+        await self._two_committed_routes()
+        self.s.new_turn()                                    # agent returns to listening, no decision
+        self.assertEqual(self.s.nav.active_destination, "airport")
+        self.assertFalse(self.s.barge.awaiting_intent)
+
+    async def test_failed_update_compensation_does_not_clear_route(self):
+        await self._commit_turn("downtown hotel")
+        self.s.new_turn()
+        res = await self._commit_turn("")                    # empty -> not_found, nothing changed
+        self.assertEqual(res["error"], "not_found")
+        self.s.barge.set_agent_speaking(True)
+        await self.s.barge.on_user_speech_started()
+        await self.s.barge.on_interrupting_speech("Wait, no")   # compensates the failed call
+        self.assertEqual(self.s.nav.active_destination, "downtown hotel")
+
+    def test_is_revision(self):
+        for text in ("Hold on, take me to the station", "wait no", "cancel that", "go back to the hotel"):
+            self.assertTrue(is_revision(text), text)
+        for text in ("Okay, thanks", "Great", "no problem", "Got it"):
+            self.assertFalse(is_revision(text), text)
+
+    # -- mock geocoder -----------------------------------------------------------
+
+    def test_any_place_resolves_deterministically(self):
+        a = NavRegistry(latency_s=0).call("get_route", destination="Delhi airport")
+        b = NavRegistry(latency_s=0).call("get_route", destination="the Delhi airport")
+        c = NavRegistry(latency_s=0).call("get_route", destination="Mumbai airport")
+        self.assertEqual(a["status"], "success")
+        self.assertEqual(a["destination"], "delhi airport")
+        self.assertEqual(a, b)                               # article ignored, stable across instances
+        self.assertNotEqual(a["distance_km"], c["distance_km"])
+        self.assertEqual(NavRegistry(latency_s=0).call("get_route", destination="")["error"], "not_found")
+
+    def test_unknown_category_returns_results(self):
+        out = NavRegistry(latency_s=0).call("find_nearby", category="pharmacy")
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(len(out["results"]), 3)
+
+    # -- silence ticker ----------------------------------------------------------
+
+    async def test_silence_ticker_holds_repair_until_900ms_mark(self):
+        calls = []
+        real = self.s.gate.on_silence_detected
+
+        async def spy(ms):
+            calls.append(ms)
+            await real(ms)
+
+        self.s.gate.on_silence_detected = spy
+        ticker = SilenceTicker(self.s.gate, time_scale=0.05)
         await self.s.gate.on_transcript_token("Take me to the mall", False)
-        await self.s.gate.on_transcript_token("oh wait, the airport", False)   # -> REPAIRING
+        await self.s.gate.on_transcript_token("oh wait, the airport", False)     # -> REPAIRING
         self.assertEqual(self.s.gate.state, TRPState.REPAIRING)
         self.s.gate._quiescence_task.cancel()                # isolate the ticker's behaviour
         ticker.on_user_stopped()
-        await asyncio.sleep(0.45)
-        self.assertEqual(self.s.gate.state, TRPState.REPAIRING)      # 300 ms mark: held
-        await asyncio.sleep(0.6)
-        self.assertEqual(self.s.gate.state, TRPState.TRP_CONFIRMED)  # 900 ms mark: confirmed
+        await _wait_for(lambda: calls == [300])
+        self.assertEqual(self.s.gate.state, TRPState.REPAIRING)                  # 300 ms mark: held
+        await _wait_for(lambda: calls == [300, 900])
+        self.assertEqual(self.s.gate.state, TRPState.TRP_CONFIRMED)              # 900 ms mark: confirmed
 
     async def test_silence_ticker_cancelled_when_driver_resumes(self):
+        calls = []
+        real = self.s.gate.on_silence_detected
+
+        async def spy(ms):
+            calls.append(ms)
+            await real(ms)
+
+        self.s.gate.on_silence_detected = spy
         ticker = SilenceTicker(self.s.gate)
         await self.s.gate.on_transcript_token("Take me to the airport", False)
         ticker.on_user_stopped()
-        await asyncio.sleep(0.1)
-        ticker.on_user_started()                             # driver resumes before 300 ms
+        await asyncio.sleep(0.05)
+        ticker.on_user_started()                             # resumes long before the 300 ms mark
         await asyncio.sleep(0.4)
+        self.assertEqual(calls, [])
         self.assertEqual(self.s.gate.state, TRPState.LISTENING)
 
 
