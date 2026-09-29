@@ -31,6 +31,17 @@ Run (repo root):
 
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# sys.path bootstrap — ensures `prism` is importable when this file is run
+# directly (`python agent/extension_incar.py`) from any working directory.
+# ---------------------------------------------------------------------------
+from pathlib import Path as _Path
+import sys as _sys
+_ROOT = _Path(__file__).resolve().parent.parent
+if str(_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_ROOT))
+# ---------------------------------------------------------------------------
+
 import asyncio
 import hashlib
 import json
@@ -191,12 +202,44 @@ class NavRegistry:
 
     # -- tools ---------------------------------------------------------------
 
+    # ---- route telemetry helpers ----
+    _ROAD_NAMES: dict[str, str] = {
+        "airport": "Airport Expressway",
+        "city mall": "Ring Road South",
+        "central station": "Central Boulevard",
+        "downtown hotel": "Main Street",
+        "city hospital": "Hospital Lane",
+        "main street fuel": "Main Street",
+        "ring road fuel": "Ring Road",
+        "harbor ev charging": "Harbor Drive",
+        "riverside cafe": "Riverside Drive",
+    }
+    _TRAFFIC: list[str] = ["clear roads", "light traffic", "moderate traffic", "light traffic"]
+
+    def _route_meta(self, name: str, d: float) -> dict:
+        road = self._ROAD_NAMES.get(name, "Main Road")
+        # deterministic traffic tier from distance bucket
+        traffic = self._TRAFFIC[min(3, int(d / 5))]
+        turn_dist = max(200, round(d * 0.4 * 1000 / 10) * 10)
+        return {
+            "via_road": road,
+            "traffic": traffic,
+            "next_maneuver": f"Stay on {road} for {turn_dist} m, then continue straight.",
+        }
+
     def _get_route(self, destination: str) -> dict:
         loc = _locate(destination)
         if loc is None:
             return {"status": "error", "error": "not_found", "query": destination}
         name, x, y = loc
-        return {"status": "success", "destination": name, "navigation_started": False, **_leg(x, y)}
+        leg = _leg(x, y)
+        return {
+            "status": "success",
+            "destination": name,
+            "navigation_started": False,
+            **leg,
+            **self._route_meta(name, leg["distance_km"]),
+        }
 
     def _find_nearby(self, category: str) -> dict:
         key = _norm(category)
@@ -210,10 +253,13 @@ class NavRegistry:
                 (math.hypot(*_synthetic_xy(f"{cat}:{i}")), f"{label} {sfx}")
                 for i, sfx in enumerate(("on Main Street", "on Ring Road", "near Central"))
             )
+        results = [{"name": n, "distance_km": round(d, 1)} for d, n in hits]
+        nearest_turn = f"In {max(100, round(hits[0][0]*300/10)*10)} m, turn right."
         return {
             "status": "success",
             "category": cat,
-            "results": [{"name": n, "distance_km": round(d, 1)} for d, n in hits],
+            "results": results,
+            "nearest_hint": nearest_turn,
         }
 
     def _update_destination(self, destination: str) -> dict:
@@ -224,13 +270,19 @@ class NavRegistry:
         previous = self.active_destination
         self.active_destination = name
         self.mutations.append({"op": "update_destination", "from": previous, "to": name})
-        return {
+        leg = _leg(x, y)
+        meta = self._route_meta(name, leg["distance_km"])
+        result = {
             "status": "success",
             "destination": name,
             "previous_destination": previous,
             "rerouted": previous is not None,
-            **_leg(x, y),
+            **leg,
+            **meta,
         }
+        if previous is not None:
+            result["correction_note"] = f"Cancelled route to {previous}. New route confirmed."
+        return result
 
 
 # ------------------------------------------------------------------------------
@@ -482,18 +534,21 @@ def build_stack(session: Any = None, latency_s: float = 0.15, log_path: Optional
 # ------------------------------------------------------------------------------
 
 _INSTRUCTIONS = (
-    "You are an in-car voice navigation assistant. The driver's eyes are on the road: "
-    "answer in one short sentence. "
-    "RULES: "
-    "1. ALWAYS use tools for routes, ETAs and nearby places - NEVER answer from memory. "
-    "2. Call a tool only once the driver's FINAL intent is clear. If they correct themselves "
-    "('no wait, the airport'), use ONLY the corrected place and call the tool ONCE. "
-    "3. Do NOT ask clarifying questions; pass places exactly as spoken ('the airport', 'downtown hotel'). "
-    "4. Use update_destination to start or change navigation, get_route only to preview, "
-    "find_nearby for gas, EV charging, cafes, hospitals. "
-    "5. After a tool returns, state the destination and ETA in one sentence. "
-    "If a result says superseded or aborted, do not mention it; wait for the driver. "
-    "6. If the driver interrupts, stop talking immediately."
+    "You are PRISM Nav, an intelligent in-car voice assistant. "
+    "You help the driver navigate, find places, and preview routes — all hands-free. "
+    "Keep responses natural, warm, and conversational (2–3 sentences). "
+    "RULES:\n"
+    "1. NAVIGATION: When the driver wants to go somewhere or change route, call update_destination. "
+    "   Confirm the destination, mention the ETA and the via road. Be friendly.\n"
+    "2. PREVIEW: For travel time or route checks, call get_route. Report distance, ETA and traffic.\n"
+    "3. AMENITIES: For gas, EV charging, food, or parking, call find_nearby. "
+    "   Name the nearest option and its distance.\n"
+    "4. CORRECTIONS: If the driver self-corrects mid-sentence (e.g. 'take me to the mall... "
+    "   no wait, the airport'), ONLY use the final corrected destination. Acknowledge the change warmly.\n"
+    "5. INTERRUPTIONS: If your previous route was cancelled, confirm the rollback warmly "
+    "   and ask where they'd like to go. Do NOT stay silent.\n"
+    "6. TOOL ONLY: NEVER state ETAs or distances from memory. Always call the tool first.\n"
+    "7. SAFETY: Never mention being an AI. Never read long lists. Keep it smooth and driver-safe."
 )
 
 
@@ -538,6 +593,18 @@ def wire_prism(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
             # do NOT reset, or staged calls would be dropped mid-correction.
         elif ev.new_state == "listening":
             ticker.on_user_stopped()
+
+    # Instant VAD onset hook — fires on the *very first* audio frame the driver
+    # produces, 300–500 ms before user_state_changed accumulates enough energy.
+    # This is the primary barge-in trigger; user_state_changed is the fallback.
+    try:
+        @session.on("user_speech_started")
+        def _on_user_speech_started():
+            ticker.on_user_started()
+            if agent_speaking["now"]:
+                asyncio.create_task(barge.on_user_speech_started())
+    except Exception:
+        pass  # older livekit-agents versions may not emit this event
 
     return ticker
 
@@ -596,8 +663,15 @@ if _HAS_LIVEKIT:
         session = AgentSession(
             llm=get_realtime_model(),
             tools=llm.find_function_tools(InCarFnc(stack.dispatcher)),
-            min_endpointing_delay=1.0,
-            max_endpointing_delay=4.0,
+            min_endpointing_delay=0.8,
+            max_endpointing_delay=3.0,
+            allow_interruptions=True,
+            # Lower AEC warmup to 0.1 s so the agent can be interrupted almost
+            # immediately — the default 3.0 s makes the agent deaf for its entire
+            # speaking turn when responses are short.
+            aec_warmup_duration=0.1,
+            # 250 ms is enough to detect real speech but not clicks/noise.
+            min_interruption_duration=0.25,
         )
         stack.bind_session(session)
         wire_prism(session, stack.gate, stack.dispatcher, stack.saga, stack.barge)
@@ -608,50 +682,188 @@ if _HAS_LIVEKIT:
 # Offline demo — real PRISM components, scripted driver + model, hard assertions
 # ------------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Rich terminal dashboard helpers (optional dependency)
+# ---------------------------------------------------------------------------
+try:
+    from rich.console import Console as _Console
+    from rich.table import Table as _Table
+    from rich.panel import Panel as _Panel
+    from rich.text import Text as _Text
+    from rich.live import Live as _Live
+    from rich import box as _box
+    _HAS_RICH = True
+except ImportError:
+    _HAS_RICH = False
+
+
+class _Dashboard:
+    """
+    Live vehicle dashboard. Falls back to plain-text if `rich` is not installed.
+    Call `.update()` whenever state changes, then `.print_static()` at the end.
+    """
+
+    def __init__(self) -> None:
+        self.active_dest: Optional[str] = None
+        self.prev_dest: Optional[str] = None
+        self.eta_min: Optional[int] = None
+        self.dist_km: Optional[float] = None
+        self.via_road: Optional[str] = None
+        self.traffic: Optional[str] = None
+        self.gate_state: str = "LISTENING"
+        self.barge_events: list[str] = []
+        self.ledger: list[tuple[str, str, str, str]] = []  # (op, from, to, status)
+        self._console = _Console() if _HAS_RICH else None
+
+    # ---- state setters ------------------------------------------------
+
+    def nav_update(self, result: dict) -> None:
+        self.prev_dest = self.active_dest
+        self.active_dest = result.get("destination")
+        self.eta_min = result.get("eta_min")
+        self.dist_km = result.get("distance_km")
+        self.via_road = result.get("via_road")
+        self.traffic = result.get("traffic")
+
+    def add_ledger(self, op: str, frm: Optional[str], to: str, status: str) -> None:
+        self.ledger.append((op, frm or "None", to, status))
+
+    def set_gate(self, state: str) -> None:
+        self.gate_state = state
+
+    def add_barge(self, msg: str) -> None:
+        self.barge_events.append(msg)
+
+    # ---- rendering ----------------------------------------------------
+
+    def _render(self) -> None:
+        if not _HAS_RICH or self._console is None:
+            return
+        self._console.print(self._build_panel())
+
+    def _build_panel(self):
+        lines = []
+        dest_line = f"[bold green]{self.active_dest or '—'}[/bold green]"
+        if self.eta_min:
+            dest_line += f"  ({self.dist_km} km | {self.eta_min} min)"
+        lines.append(f"[bold]ACTIVE DESTINATION:[/bold]   {dest_line}")
+        if self.via_road:
+            lines.append(f"[bold]ROUTE GUIDANCE:[/bold]       via {self.via_road} ({self.traffic})")
+        if self.prev_dest:
+            lines.append(f"[bold]SAGA RESTORE MEMORY:[/bold]  {self.prev_dest}")
+        lines.append("")
+        gate_color = "yellow" if "REPAIR" in self.gate_state else ("green" if "CONFIRM" in self.gate_state else "cyan")
+        lines.append(f"[bold]PRISM TRP GATE:[/bold]       [{gate_color}]{self.gate_state}[/{gate_color}]")
+        if self.barge_events:
+            lines.append(f"[bold]BARGE-IN:[/bold]             [red]{self.barge_events[-1]}[/red]")
+
+        if self.ledger:
+            lines.append("")
+            lines.append("[bold]TRANSACTION LEDGER:[/bold]")
+            for i, (op, frm, to, st) in enumerate(self.ledger, 1):
+                color = "green" if "COMMIT" in st else ("red" if "ROLLEDBACK" in st else "yellow")
+                lines.append(f"  {i}. [cyan]{op:<22}[/cyan] {frm:<18} -> {to:<18} [{color}]{st}[/{color}]")
+
+        body = "\n".join(lines)
+        return _Panel(
+            body,
+            title="[bold blue]PRISM IN-CAR INTELLIGENT NAVIGATION SYSTEM[/bold blue]",
+            border_style="blue",
+            padding=(1, 2),
+        )
+
+    def print_static(self) -> None:
+        if _HAS_RICH and self._console:
+            self._console.print(self._build_panel())
+        else:
+            print("\n=== PRISM DASHBOARD ===")
+            print(f"  ACTIVE DESTINATION : {self.active_dest}")
+            print(f"  ETA                : {self.eta_min} min  ({self.dist_km} km)")
+            print(f"  VIA                : {self.via_road}")
+            print(f"  TRAFFIC            : {self.traffic}")
+            print(f"  GATE               : {self.gate_state}")
+            for ev in self.barge_events:
+                print(f"  BARGE-IN           : {ev}")
+            print("  LEDGER:")
+            for i, (op, frm, to, st) in enumerate(self.ledger, 1):
+                print(f"    {i}. {op:<22} {frm:<18} -> {to:<18}  [{st}]")
+
+
 async def run_demo() -> bool:
     logging.getLogger("prism").setLevel(logging.WARNING)
     t0 = time.monotonic()
+    dash = _Dashboard()
 
-    def say(who: str, msg: str) -> None:
-        print(f"[{time.monotonic() - t0:5.2f}s] {who:<8} {msg}")
+    def ts() -> str:
+        return f"[{time.monotonic() - t0:5.2f}s]"
+
+    def say(who: str, msg: str, color: str = "") -> None:
+        if _HAS_RICH:
+            _Console().print(f"{ts()} [bold {color or 'white'}]{who:<8}[/bold {color or 'white'}] {msg}")
+        else:
+            print(f"{ts()} {who:<8} {msg}")
 
     with tempfile.TemporaryDirectory() as tmp:
         s = build_stack(log_path=os.path.join(tmp, "incar.log"), room_name="incar-demo")
 
-        async def _print_state(state: TRPState) -> None:
-            say("GATE", f"-> {state.name}")
+        async def _on_gate_state(state: TRPState) -> None:
+            dash.set_gate(state.name)
+            say("GATE", f"-> {state.name}", "yellow")
 
-        # Registered after build_stack's dispatcher listener: commit happens first,
-        # so the GATE line prints once the outcome is already on the vehicle.
-        s.gate.add_state_listener(_print_state)
+        s.gate.add_state_listener(_on_gate_state)
 
         def model_calls(name: str, **args: Any):
-            say("MODEL", f"emits {name}({', '.join(f'{k}={v!r}' for k, v in args.items())})")
+            say("MODEL", f"emits {name}({', '.join(f'{k}={v!r}' for k, v in args.items())})", "magenta")
             return s.model_call(name, **args)
 
-        async def agent_says(text: str, seconds: float = 0.3) -> None:
+        async def agent_says(text: str, seconds: float = 0.4) -> None:
             s.barge.set_agent_speaking(True)
-            say("AGENT", f'"{text}"')
+            say("AGENT", f'"{text}"', "green")
             await asyncio.sleep(seconds)
 
         async def agent_done() -> None:
             s.barge.set_agent_speaking(False)
             s.new_turn()
 
-        # ── Scenario 1: mid-route self-correction (COMPENSABLE, last-writer-wins) ──
-        print("\n=== 1. Start navigation, then correct destination mid-utterance ===")
-        say("DRIVER", '"Navigate to the downtown hotel."')
+        # ── Print header ──────────────────────────────────────────────────────
+        if _HAS_RICH:
+            _Console().rule("[bold blue]PRISM In-Car Navigation — Demo Walkthrough[/bold blue]")
+        else:
+            print("\n" + "=" * 70)
+            print("   PRISM In-Car Navigation — Demo Walkthrough")
+            print("=" * 70)
+
+        # ── Scenario 1: initial route ──────────────────────────────────────────
+        say("=SYS=", "=== Scenario 1: Driver requests a route ===", "blue")
+        say("DRIVER", '"Navigate to the downtown hotel."', "cyan")
         await s.gate.on_transcript_token("Navigate to the downtown hotel.", True)
         r = json.loads(await model_calls("update_destination", destination="downtown hotel"))
-        await agent_says(f"Heading to {r['destination']}, {r['eta_min']} minutes.")
+        dash.nav_update(r)
+        dash.add_ledger("update_destination", None, r["destination"], "COMMITTED")
+        say(
+            "AGENT",
+            f'"Routing you to {r["destination"]} via {r.get("via_road", "Main Road")}. '
+            f'ETA is {r["eta_min"]} minutes with {r.get("traffic", "clear roads")}. '
+            f'{r.get("next_maneuver", "")}"',
+            "green",
+        )
+        await asyncio.sleep(0.5)
         await agent_done()
+        dash.print_static()
 
-        say("DRIVER", '"Take me to the city mall..."')
+        # ── Scenario 2 + 3: mid-sentence correction → airport committed → barge-in rollback ───
+        # These are ONE continuous driver interaction: the driver first self-corrects
+        # (Scenario 2), the model commits airport, the agent starts to speak, then
+        # the driver barges in with a new destination (Scenario 3). The saga must
+        # NOT be cleared between the commit and the barge-in, so agent_done() is
+        # intentionally skipped here — the barge-in IS the end of the agent turn.
+        say("=SYS=", "=== Scenario 2: Mid-sentence self-correction (last-writer-wins) ===", "blue")
+        say("DRIVER", '"Take me to the city mall..."', "cyan")
         await s.gate.on_transcript_token("Take me to the city mall", False)
         await asyncio.sleep(0.2)
-        stale = model_calls("update_destination", destination="city mall")  # eager, from partial speech
+        stale = model_calls("update_destination", destination="city mall")
         await asyncio.sleep(0.3)
-        say("DRIVER", '"...no wait, actually the airport."')
+        say("DRIVER", '"...no wait, actually the airport."', "cyan")
         await s.gate.on_transcript_token("no wait, actually the airport", False)
         await asyncio.sleep(0.25)
         fresh = model_calls("update_destination", destination="airport")
@@ -659,44 +871,79 @@ async def run_demo() -> bool:
         stale_status = json.loads(stale_out)["status"]
         fresh_res = json.loads(fresh_out)
         after_correction = s.nav.active_destination
-        say("VEHICLE", f"active destination = {after_correction!r}  (stale call status: {stale_status})")
+        dash.nav_update(fresh_res)
+        dash.add_ledger("update_destination", "downtown hotel", "city mall", "SUPERSEDED \u2014 DROPPED")
+        dash.add_ledger("update_destination", "downtown hotel", fresh_res["destination"], "COMMITTED")
+        say("VEHICLE", f"active destination = {after_correction!r}  (stale call: {stale_status})", "white")
 
-        # ── Scenario 2: barge-in while the agent confirms -> saga rollback ──
-        print("\n=== 2. Driver talks over the agent: correction rolls back, acknowledgement does not ===")
-        await agent_says(f"Rerouting to the airport, {fresh_res['eta_min']} minutes.", 0.2)
-        say("DRIVER", '"Hold on - take me to the central station instead." (barges in)')
-        await s.barge.on_user_speech_started()  # VAD onset: audio flushed, rollback decision deferred
+        # Agent starts speaking the airport confirmation — saga still has the
+        # airport entry. The driver immediately barges in before we could call
+        # agent_done() (which would clear the saga).
+        say("=SYS=", "=== Scenario 3: Live barge-in \u2192 saga rollback (same agent turn) ===", "blue")
+        await agent_says(  # arms barge-in; does NOT call agent_done()
+            f'"Sure, I caught that \u2014 routing you to the airport instead. '
+            f'Via {fresh_res.get("via_road", "Airport Expressway")}, '
+            f'ETA {fresh_res["eta_min"]} minutes with {fresh_res.get("traffic", "light traffic")}. '
+            f'{fresh_res.get("next_maneuver", "")}"',
+            seconds=0.25,
+        )
+        say("DRIVER", '"Hold on \u2014 take me to central station instead."  [BARGING IN]', "red")
+        dash.add_barge("BARGE-IN DETECTED \u2192 Outbound Audio Flushed \u2192 Saga Rollback Executing")
+        await s.barge.on_user_speech_started()  # VAD onset: audio flushed, rollback deferred
         await s.barge.on_interrupting_speech("Hold on - take me to the central station instead")
         after_rollback = s.nav.active_destination
-        say("VEHICLE", f"active destination = {after_rollback!r}  (reroute rolled back)")
+        dash.add_ledger("saga_rollback", fresh_res["destination"], after_rollback or "None", "ROLLED BACK VIA BARGE-IN")
+        say("VEHICLE", f"active destination = {after_rollback!r}  (airport reroute rolled back)", "white")
         await s.gate.on_transcript_token("Hold on - take me to the central station instead", False)
         await asyncio.sleep(0.3)
         final_res = json.loads(await model_calls("update_destination", destination="central station"))
-        await agent_says(f"Heading to central station, {final_res['eta_min']} minutes.", 0.2)
-        say("DRIVER", '"Okay, thanks." (talks over the confirmation)')
-        await s.barge.on_user_speech_started()
+        dash.nav_update(final_res)
+        dash.add_ledger("update_destination", after_rollback, final_res["destination"], "COMMITTED")
+        await agent_says(  # agent speaks the central station confirmation
+            f'"Got it \u2014 routing to Central Station via {final_res.get("via_road", "Central Boulevard")}. '
+            f'ETA {final_res["eta_min"]} minutes, {final_res.get("traffic", "clear roads")}. '
+            f'{final_res.get("next_maneuver", "")}"',
+            seconds=0.25,
+        )
+        dash.print_static()
+
+        # ── Scenario 4: acknowledgement barge-in \u2014 route kept \u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014
+        # Agent is STILL speaking the central station confirmation (barge.set_agent_speaking
+        # is True from agent_says above). Driver says "Okay, thanks" \u2014 this should NOT
+        # roll back the route because it's an acknowledgement, not a revision.
+        say("=SYS=", "=== Scenario 4: Acknowledgement barge-in \u2014 route kept ===", "blue")
+        say("DRIVER", '"Okay, thanks."  [talks over confirmation]', "cyan")
+        await s.barge.on_user_speech_started()  # agent is still speaking \u2192 barge-in fires
         await s.barge.on_interrupting_speech("Okay, thanks")
         after_ack = s.nav.active_destination
-        say("VEHICLE", f"active destination = {after_ack!r}  (acknowledgement: route kept)")
+        say("VEHICLE", f"active destination = {after_ack!r}  (acknowledgement: route kept)", "white")
         await agent_done()
+        dash.print_static()
 
-        # ── Scenario 3: read-only correction (speculative execution + supersession) ──
-        print("\n=== 3. Read-only query corrected mid-utterance ===")
-        say("DRIVER", '"Find a gas station near me..."')
+        # ── Scenario 5: read-only query self-correction ────────────────────────
+        say("=SYS=", "=== Scenario 5: Read-only query mid-sentence correction ===", "blue")
+        say("DRIVER", '"Find a gas station near me..."', "cyan")
         await s.gate.on_transcript_token("Find a gas station near me", False)
         await asyncio.sleep(0.2)
         stale_q = model_calls("find_nearby", category="gas station")
         await asyncio.sleep(0.3)
-        say("DRIVER", '"...sorry, I mean EV charging."')
+        say("DRIVER", '"...sorry, I mean EV charging."', "cyan")
         await s.gate.on_transcript_token("sorry, I mean EV charging", False)
         await asyncio.sleep(0.25)
         fresh_q = model_calls("find_nearby", category="EV charging")
         stale_q_out, fresh_q_out = await asyncio.gather(stale_q, fresh_q)
         stale_q_status = json.loads(stale_q_out)["status"]
         fresh_q_res = json.loads(fresh_q_out)
-        say("AGENT", f'"Nearest EV charging: {fresh_q_res["results"][0]["name"]}."')
+        nearest = fresh_q_res["results"][0]
+        say(
+            "AGENT",
+            f'"Sure! The nearest EV charging station is {nearest["name"]}, '
+            f'about {nearest["distance_km"]} km away. {fresh_q_res.get("nearest_hint", "")}"',
+            "green",
+        )
+        dash.print_static()
 
-        # ── Verdict ──
+        # ── Verdict ────────────────────────────────────────────────────────────
         history = [m["to"] for m in s.nav.mutations]
         checks = {
             "stale 'city mall' call superseded, never reached vehicle":
@@ -712,14 +959,35 @@ async def run_demo() -> bool:
                 stale_q_status == "superseded" and fresh_q_res.get("category") == "ev_charging",
         }
 
-    print("\n=== Vehicle mutation history (ground truth) ===")
-    for m in s.nav.mutations:
-        print(f"  {m['op']:<18} {m['from']!s:<16} -> {m['to']}")
-    print("\n=== Checks ===")
-    for name, ok in checks.items():
-        print(f"  [{'PASS' if ok else 'FAIL'}] {name}")
-    ok_all = all(checks.values())
-    print(f"\nRESULT: {'ALL CHECKS PASSED' if ok_all else 'FAILED'}")
+    if _HAS_RICH:
+        console = _Console()
+        console.rule("[bold]Vehicle Mutation History (Ground Truth)[/bold]")
+        t = _Table(box=_box.SIMPLE)
+        t.add_column("#", style="dim")
+        t.add_column("Operation", style="cyan")
+        t.add_column("From", style="yellow")
+        t.add_column("To", style="green")
+        for i, m in enumerate(s.nav.mutations, 1):
+            t.add_row(str(i), m["op"], str(m["from"]), str(m["to"]))
+        console.print(t)
+        console.rule("[bold]PRISM Verification Checks[/bold]")
+        for name, ok in checks.items():
+            color = "green" if ok else "red"
+            icon = "✓" if ok else "✗"
+            console.print(f"  [{color}]{icon}[/{color}] {name}")
+        ok_all = all(checks.values())
+        result_color = "green" if ok_all else "red"
+        console.print(f"\n[bold {result_color}]RESULT: {'ALL CHECKS PASSED ✓' if ok_all else 'CHECKS FAILED ✗'}[/bold {result_color}]")
+    else:
+        print("\n=== Vehicle mutation history (ground truth) ===")
+        for m in s.nav.mutations:
+            print(f"  {m['op']:<18} {m['from']!s:<16} -> {m['to']}")
+        print("\n=== Checks ===")
+        for name, ok in checks.items():
+            print(f"  [{'PASS' if ok else 'FAIL'}] {name}")
+        ok_all = all(checks.values())
+        print(f"\nRESULT: {'ALL CHECKS PASSED' if ok_all else 'FAILED'}")
+
     return ok_all
 
 
