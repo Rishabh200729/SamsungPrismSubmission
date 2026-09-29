@@ -18,6 +18,9 @@ Nothing under prism/ is modified. This module adds:
              update_destination (COMPENSABLE: start / change active route)
   * InCarDispatcher: last-writer-wins for update_destination, route-restore
     compensation, and no orphaned futures on turn reset
+  * InCarBargeIn: rolls the route back only if the interrupting speech is a
+    correction/new command, not an acknowledgement ("okay, thanks")
+  * mock geocoder: any place name resolves deterministically
   * SilenceTicker: feeds the gate real, growing silence durations (300/900 ms)
   * a LiveKit voice entrypoint and an offline, deterministic demo
 
@@ -29,6 +32,7 @@ Run (repo root):
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
@@ -38,13 +42,13 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 from prism import CompensationEntry, EffectClass, ToolCall, TRPState
 from prism.barge_in import BargeInController
 from prism.saga_coordinator import SagaCoordinator
 from prism.tool_dispatcher import EFFECT_MAP, ToolDispatcher, _ABORTED, _SUPERSEDED
-from prism.trp_gate import VAD_SILENCE_NORMAL_MS, VAD_SILENCE_REPAIRING_MS, TRPGate
+from prism.trp_gate import _CORRECTION_TERMS_RE, VAD_SILENCE_NORMAL_MS, VAD_SILENCE_REPAIRING_MS, TRPGate
 
 try:  # optional: offline demo and unit tests need no LiveKit / dotenv
     from dotenv import load_dotenv
@@ -118,27 +122,38 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", str(text).lower())).strip()
 
 
-def _resolve_place(text: str) -> Optional[str]:
-    """Map a spoken place ('the airport', 'downtown hotel') to a known place, or None."""
-    q = re.sub(r"^(the|a|an)\s+", "", _norm(text))
+_LEADING_ARTICLE_RE = re.compile(r"^(the|a|an|my|our)\s+")
+
+
+def _synthetic_xy(key: str) -> tuple[float, float]:
+    """Stable pseudo-location in a 50x50 km box (sha256, not hash(): must survive restarts)."""
+    d = hashlib.sha256(key.encode("utf-8")).digest()
+    return d[0] / 255 * 50 - 25, d[1] / 255 * 50 - 25
+
+
+def _locate(text: str) -> Optional[tuple[str, float, float]]:
+    """
+    Mock geocoder. Known places resolve to their fixed coordinates; any other
+    non-empty name resolves to a deterministic synthetic location, like a real
+    geocoder that finds "Delhi airport" or "Sector 17 market". Empty input -> None.
+    """
+    q = _LEADING_ARTICLE_RE.sub("", _norm(text))
     if not q:
         return None
     if q in _PLACES:
-        return q
-    hits = [n for n in _PLACES if q in n or n in q]
+        return q, _PLACES[q][0], _PLACES[q][1]
+    hits = [n for n in _PLACES if q in n]
     if len(hits) != 1:
         tokens = set(q.split())
         hits = [n for n in _PLACES if tokens <= set(n.split())]
-    return hits[0] if len(hits) == 1 else None
+    if len(hits) == 1:
+        return hits[0], _PLACES[hits[0]][0], _PLACES[hits[0]][1]
+    x, y = _synthetic_xy(q)
+    return q, x, y
 
 
-def _distance_km(name: str) -> float:
-    x, y, _ = _PLACES[name]
-    return math.hypot(x, y)
-
-
-def _leg(name: str) -> dict:
-    d = _distance_km(name)
+def _leg(x: float, y: float) -> dict:
+    d = math.hypot(x, y)
     return {"distance_km": round(d, 1), "eta_min": max(1, round(d * _AVG_MIN_PER_KM))}
 
 
@@ -177,17 +192,24 @@ class NavRegistry:
     # -- tools ---------------------------------------------------------------
 
     def _get_route(self, destination: str) -> dict:
-        place = _resolve_place(destination)
-        if place is None:
+        loc = _locate(destination)
+        if loc is None:
             return {"status": "error", "error": "not_found", "query": destination}
-        return {"status": "success", "destination": place, "navigation_started": False, **_leg(place)}
+        name, x, y = loc
+        return {"status": "success", "destination": name, "navigation_started": False, **_leg(x, y)}
 
     def _find_nearby(self, category: str) -> dict:
         key = _norm(category)
-        cat = _CATEGORY_ALIASES.get(key, key.replace(" ", "_"))
-        hits = sorted((_distance_km(n), n) for n, (_, _, c) in _PLACES.items() if c == cat)[:3]
-        if not hits:
+        if not key:
             return {"status": "error", "error": "not_found", "query": category}
+        cat = _CATEGORY_ALIASES.get(key, key.replace(" ", "_"))
+        hits = sorted((math.hypot(x, y), n) for n, (x, y, c) in _PLACES.items() if c == cat)[:3]
+        if not hits:  # unknown category: deterministic synthetic results
+            label = cat.replace("_", " ")
+            hits = sorted(
+                (math.hypot(*_synthetic_xy(f"{cat}:{i}")), f"{label} {sfx}")
+                for i, sfx in enumerate(("on Main Street", "on Ring Road", "near Central"))
+            )
         return {
             "status": "success",
             "category": cat,
@@ -195,18 +217,19 @@ class NavRegistry:
         }
 
     def _update_destination(self, destination: str) -> dict:
-        place = _resolve_place(destination)
-        if place is None:
+        loc = _locate(destination)
+        if loc is None:
             return {"status": "error", "error": "not_found", "query": destination}
+        name, x, y = loc
         previous = self.active_destination
-        self.active_destination = place
-        self.mutations.append({"op": "update_destination", "from": previous, "to": place})
+        self.active_destination = name
+        self.mutations.append({"op": "update_destination", "from": previous, "to": name})
         return {
             "status": "success",
-            "destination": place,
+            "destination": name,
             "previous_destination": previous,
             "rerouted": previous is not None,
-            **_leg(place),
+            **_leg(x, y),
         }
 
 
@@ -236,6 +259,8 @@ class InCarDispatcher(ToolDispatcher):
     ) -> None:
         super().__init__(registry_fn=nav.call, saga=saga, tool_log_path=tool_log_path, room_name=room_name)
         self._nav = nav
+        # Awaited before a destination change commits (see InCarBargeIn.on_new_command).
+        self.pre_commit_hook: Optional[Callable[[], Awaitable[None]]] = None
 
     async def _handle_mutating(self, call: ToolCall) -> None:
         if call.name in _LAST_WRITER_WINS:
@@ -245,6 +270,11 @@ class InCarDispatcher(ToolDispatcher):
                     log.info("incar: %s%s superseded before commit by %s", prior.name, prior.args, call.args)
                     prior._resolution_future.set_result(_SUPERSEDED)
         await super()._handle_mutating(call)
+
+    async def _commit_mutating(self, call: ToolCall) -> None:
+        if call.name in _LAST_WRITER_WINS and self.pre_commit_hook is not None:
+            await self.pre_commit_hook()
+        await super()._commit_mutating(call)
 
     def _build_compensation(self, call: ToolCall, result: dict) -> CompensationEntry:
         if call.name != "update_destination":
@@ -284,6 +314,75 @@ class InCarDispatcher(ToolDispatcher):
 
 
 # ------------------------------------------------------------------------------
+# Intent-aware barge-in
+# ------------------------------------------------------------------------------
+
+_CANCEL_RE = re.compile(r"\b(stop|cancel|go back|not that|undo|revert|the other one)\b", re.IGNORECASE)
+_ACK_RE = re.compile(r"\bno (problem|worries)\b", re.IGNORECASE)
+
+
+def is_revision(text: str) -> bool:
+    """True if the driver is correcting/cancelling (Levelt editing terms + cancel words), not just acknowledging."""
+    text = _ACK_RE.sub("", text)
+    return bool(_CORRECTION_TERMS_RE.search(text) or _CANCEL_RE.search(text))
+
+
+class InCarBargeIn(BargeInController):
+    """
+    BargeInController that decides *after hearing the driver* whether to roll back.
+
+    Base behaviour rolls back every committed mutation on any barge-in, but VAD fires
+    before any words exist: "thanks" and "no wait, cancel that" look identical at onset.
+    Here onset still flushes audio and aborts uncommitted work immediately; the
+    committed route is rolled back only once the speech turns out to be a revision
+    (or the driver issues a new destination command). Acknowledgements keep the route.
+    """
+
+    def __init__(self, session, trp_gate, dispatcher, saga) -> None:
+        super().__init__(session=session, trp_gate=trp_gate, dispatcher=dispatcher, saga=saga)
+        self.awaiting_intent = False
+
+    async def _execute_barge_in(self) -> None:
+        try:
+            await self._session.interrupt()
+        except Exception as exc:
+            log.warning("incar barge_in: session.interrupt() failed: %s", exc)
+        await self._gate.force_abort()
+        self.awaiting_intent = self._saga.has_committed_mutations
+        self._gate.reset_for_new_turn()
+        self._dispatcher.reset_for_new_turn()
+        if not self.awaiting_intent:
+            self._saga.clear_for_new_turn()
+        self._agent_speaking = False
+        self._handling_barge_in = False
+
+    async def on_interrupting_speech(self, transcript: str, is_final: bool = True) -> None:
+        """Feed transcripts after a barge-in; the first revision (or final non-revision) decides."""
+        if not self.awaiting_intent or not transcript.strip():
+            return
+        if is_revision(transcript):
+            await self._resolve(revise=True)
+        elif is_final:
+            await self._resolve(revise=False)
+
+    async def on_new_command(self) -> None:
+        """A new destination command supersedes the interrupted reroute: roll it back first."""
+        await self._resolve(revise=True)
+
+    def drop_pending(self) -> None:
+        """Turn boundary without a decision (e.g. a cough): keep the route."""
+        self.awaiting_intent = False
+
+    async def _resolve(self, revise: bool) -> None:
+        if not self.awaiting_intent:
+            return
+        self.awaiting_intent = False
+        if revise:
+            await self._saga.compensate_all()
+        self._saga.clear_for_new_turn()
+
+
+# ------------------------------------------------------------------------------
 # Real silence durations for the TRP gate
 # ------------------------------------------------------------------------------
 
@@ -296,9 +395,11 @@ class SilenceTicker:
     instantly and defeat the hold.)
     """
 
-    def __init__(self, gate: TRPGate, marks_ms: tuple[int, ...] = (VAD_SILENCE_NORMAL_MS, VAD_SILENCE_REPAIRING_MS)):
+    def __init__(self, gate: TRPGate, marks_ms: tuple[int, ...] = (VAD_SILENCE_NORMAL_MS, VAD_SILENCE_REPAIRING_MS),
+                 time_scale: float = 1.0):
         self._gate = gate
         self._marks = marks_ms
+        self._scale = time_scale  # <1 compresses waiting (tests); reported marks stay nominal
         self._task: Optional[asyncio.Task] = None
 
     def on_user_stopped(self) -> None:
@@ -313,7 +414,7 @@ class SilenceTicker:
     async def _run(self) -> None:
         elapsed = 0
         for mark in self._marks:
-            await asyncio.sleep((mark - elapsed) / 1000.0)
+            await asyncio.sleep((mark - elapsed) / 1000.0 * self._scale)
             elapsed = mark
             await self._gate.on_silence_detected(mark)
 
@@ -338,13 +439,21 @@ class Stack:
     saga: SagaCoordinator
     dispatcher: InCarDispatcher
     gate: TRPGate
-    barge: BargeInController
-    session: Any
+    barge: Optional[InCarBargeIn] = None
+    session: Any = None
+
+    def bind_session(self, session: Any) -> None:
+        """Attach the (real or fake) session; the barge-in controller needs it, the session needs the tools."""
+        self.session = session
+        self.barge = InCarBargeIn(session=session, trp_gate=self.gate, dispatcher=self.dispatcher, saga=self.saga)
+        self.dispatcher.pre_commit_hook = self.barge.on_new_command
 
     def new_turn(self) -> None:
         self.gate.reset_for_new_turn()
         self.dispatcher.reset_for_new_turn()
         self.saga.clear_for_new_turn()
+        if self.barge is not None:
+            self.barge.drop_pending()
 
     def model_call(self, name: str, **args: Any) -> "asyncio.Task[str]":
         """What the realtime model does when it emits a tool call."""
@@ -363,9 +472,9 @@ def build_stack(session: Any = None, latency_s: float = 0.15, log_path: Optional
     )
     gate = TRPGate()
     gate.add_state_listener(dispatcher.on_trp_state_change)
-    session = session if session is not None else FakeSession()
-    barge = BargeInController(session=session, trp_gate=gate, dispatcher=dispatcher, saga=saga)
-    return Stack(nav, saga, dispatcher, gate, barge, session)
+    stack = Stack(nav=nav, saga=saga, dispatcher=dispatcher, gate=gate)
+    stack.bind_session(session if session is not None else FakeSession())
+    return stack
 
 
 # ------------------------------------------------------------------------------
@@ -389,7 +498,7 @@ _INSTRUCTIONS = (
 
 
 def wire_prism(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
-               saga: SagaCoordinator, barge: BargeInController) -> SilenceTicker:
+               saga: SagaCoordinator, barge: InCarBargeIn) -> SilenceTicker:
     """Connect LiveKit session events to the PRISM layers."""
     ticker = SilenceTicker(gate)
     agent_speaking = {"now": False}
@@ -398,10 +507,15 @@ def wire_prism(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
         gate.reset_for_new_turn()
         dispatcher.reset_for_new_turn()
         saga.clear_for_new_turn()
+        barge.drop_pending()
 
     @session.on("user_input_transcribed")
     def _on_transcript(ev):
-        asyncio.create_task(gate.on_transcript_token(ev.transcript, ev.is_final))
+        async def _feed() -> None:
+            await barge.on_interrupting_speech(ev.transcript, ev.is_final)  # no-op unless a barge-in awaits intent
+            await gate.on_transcript_token(ev.transcript, ev.is_final)
+
+        asyncio.create_task(_feed())
 
     @session.on("agent_state_changed")
     def _on_agent_state(ev):
@@ -485,10 +599,7 @@ if _HAS_LIVEKIT:
             min_endpointing_delay=1.0,
             max_endpointing_delay=4.0,
         )
-        # Rebind the barge-in controller to the real session (build_stack used a stand-in).
-        stack.barge = BargeInController(
-            session=session, trp_gate=stack.gate, dispatcher=stack.dispatcher, saga=stack.saga,
-        )
+        stack.bind_session(session)
         wire_prism(session, stack.gate, stack.dispatcher, stack.saga, stack.barge)
         await session.start(room=ctx.room, agent=InCarVoiceAgent())
 
@@ -551,16 +662,22 @@ async def run_demo() -> bool:
         say("VEHICLE", f"active destination = {after_correction!r}  (stale call status: {stale_status})")
 
         # ── Scenario 2: barge-in while the agent confirms -> saga rollback ──
-        print("\n=== 2. Driver talks over the agent -> audio flush + route rollback ===")
+        print("\n=== 2. Driver talks over the agent: correction rolls back, acknowledgement does not ===")
         await agent_says(f"Rerouting to the airport, {fresh_res['eta_min']} minutes.", 0.2)
         say("DRIVER", '"Hold on - take me to the central station instead." (barges in)')
-        await s.barge.on_user_speech_started()
+        await s.barge.on_user_speech_started()  # VAD onset: audio flushed, rollback decision deferred
+        await s.barge.on_interrupting_speech("Hold on - take me to the central station instead")
         after_rollback = s.nav.active_destination
         say("VEHICLE", f"active destination = {after_rollback!r}  (reroute rolled back)")
         await s.gate.on_transcript_token("Hold on - take me to the central station instead", False)
         await asyncio.sleep(0.3)
-        final_call = model_calls("update_destination", destination="central station")
-        await final_call
+        final_res = json.loads(await model_calls("update_destination", destination="central station"))
+        await agent_says(f"Heading to central station, {final_res['eta_min']} minutes.", 0.2)
+        say("DRIVER", '"Okay, thanks." (talks over the confirmation)')
+        await s.barge.on_user_speech_started()
+        await s.barge.on_interrupting_speech("Okay, thanks")
+        after_ack = s.nav.active_destination
+        say("VEHICLE", f"active destination = {after_ack!r}  (acknowledgement: route kept)")
         await agent_done()
 
         # ── Scenario 3: read-only correction (speculative execution + supersession) ──
@@ -585,9 +702,10 @@ async def run_demo() -> bool:
             "stale 'city mall' call superseded, never reached vehicle":
                 stale_status == "superseded" and "city mall" not in history,
             "corrected destination 'airport' committed": after_correction == "airport",
-            "barge-in flushed agent audio": s.session.interrupted == 1,
+            "both barge-ins flushed agent audio": s.session.interrupted == 2,
             "barge-in rolled back reroute to previous destination": after_rollback == "downtown hotel",
             "post-barge command applied": s.nav.active_destination == "central station",
+            "acknowledgement barge-in kept the route (no rollback)": after_ack == "central station",
             "vehicle mutation history is exactly the intended one":
                 history == ["downtown hotel", "airport", "downtown hotel", "central station"],
             "stale read-only query superseded, corrected one returned":
