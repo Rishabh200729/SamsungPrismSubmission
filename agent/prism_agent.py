@@ -22,7 +22,7 @@ from typing import Any, Optional, Union
 
 from dotenv import load_dotenv
 from livekit import agents
-from livekit.agents import Agent, AgentSession, AgentServer, llm
+from livekit.agents import Agent, AgentSession, AgentServer, llm, inference
 
 # Load local environment
 load_dotenv(".env")
@@ -461,14 +461,16 @@ async def entrypoint(ctx: agents.JobContext):
     fnc_ctx = AssistantFnc(tracker, ctx.room.name, dispatcher=dispatcher)
     tools = llm.find_function_tools(fnc_ctx)
 
+    vad = inference.VAD(model="silero")
     session = AgentSession(
         llm=model,
+        vad=vad,
         tools=tools,
+        allow_interruptions=True,
         min_endpointing_delay=1.0,
         max_endpointing_delay=4.0,
-        allow_interruptions=True,
-        min_interruption_duration=0.2,
         aec_warmup_duration=0.0,
+        min_interruption_duration=0.2,
     )
 
     barge = BargeInController(
@@ -484,6 +486,11 @@ async def entrypoint(ctx: agents.JobContext):
 
     @session.on("user_input_transcribed")
     def on_user_input(msg: agents.voice.UserInputTranscribedEvent):
+        # Safety net: If user speech is transcribed while agent is speaking, trigger barge-in immediately
+        if (barge.is_agent_speaking or getattr(session, "agent_state", None) == "speaking") and not barge.is_handling_barge_in:
+            log.info("barge_in: user transcript arrived while agent speaking — triggering barge-in cascade")
+            asyncio.create_task(lifecycle.user_speech_started())
+
         if not tracker.query_received:
             tracker.user_done_at = time.time()
             tracker.query_received = True

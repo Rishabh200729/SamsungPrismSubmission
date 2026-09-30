@@ -62,6 +62,12 @@ class voice:
     UserStateChangedEvent = llm.voice.UserStateChangedEvent
 
 
+class inference:
+    class VAD:
+        def __init__(self, *args, **kw):
+            pass
+
+
 class JobContext:
     def __init__(self):
         class _Room:

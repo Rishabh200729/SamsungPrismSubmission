@@ -24,6 +24,8 @@ Note on LiveKit API:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 
 from prism import TRPState
@@ -100,7 +102,7 @@ class BargeInController:
     @property
     def is_agent_speaking(self) -> bool:
         """True while an agent response is eligible for barge-in."""
-        return self._agent_speaking
+        return self._agent_speaking or getattr(self._session, "agent_state", None) == "speaking"
 
     # -----------------------------------------------------------------------
     # Barge-in detection
@@ -115,12 +117,13 @@ class BargeInController:
         would allow in the unmodified reference agent.  By calling session.interrupt()
         here we bypass the 3.00s AEC warmup delay seen in the empirical traces.
         """
+        is_speaking = self.is_agent_speaking
         log.info(
             "barge_in: user speech onset (agent_speaking=%s, handling=%s)",
-            self._agent_speaking,
+            is_speaking,
             self._handling_barge_in,
         )
-        if not self._agent_speaking:
+        if not is_speaking:
             return False   # Normal: user speaking during user-turn, not a barge-in
 
         if self._handling_barge_in:
@@ -154,7 +157,9 @@ class BargeInController:
         try:
             # force=True bypasses the AEC warmup lockout (default 3.0s window
             # that silently ignores interruptions right after agent starts speaking).
-            await self._session.interrupt(force=True)
+            res = self._session.interrupt(force=True)
+            if asyncio.isfuture(res) or inspect.isawaitable(res):
+                await res
             log.info("barge_in: session.interrupt(force=True) called — audio flushed")
         except Exception as exc:
             log.warning("barge_in: session.interrupt() failed: %s — continuing cascade", exc)

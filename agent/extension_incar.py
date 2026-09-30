@@ -44,6 +44,7 @@ if str(_ROOT) not in _sys.path:
 
 import asyncio
 import hashlib
+import inspect
 import json
 import logging
 import math
@@ -410,7 +411,9 @@ class InCarBargeIn(BargeInController):
 
     async def _execute_barge_in(self) -> None:
         try:
-            await self._session.interrupt()
+            res = self._session.interrupt(force=True)
+            if asyncio.isfuture(res) or inspect.isawaitable(res):
+                await res
         except Exception as exc:
             log.warning("incar barge_in: session.interrupt() failed: %s", exc)
         await self._gate.force_abort()
@@ -495,7 +498,7 @@ class FakeSession:
     def __init__(self) -> None:
         self.interrupted = 0
 
-    async def interrupt(self) -> None:
+    async def interrupt(self, force: bool = False, **kwargs: Any) -> None:
         self.interrupted += 1
 
 
@@ -586,6 +589,9 @@ def wire_trax(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
     @session.on("user_input_transcribed")
     def _on_transcript(ev):
         async def _feed() -> None:
+            # Immediate transcript barge-in fallback if agent is speaking
+            if agent_speaking["now"] or getattr(session, "agent_state", None) == "speaking":
+                await barge.on_user_speech_started()
             await barge.on_interrupting_speech(ev.transcript, ev.is_final)  # no-op unless a barge-in awaits intent
             await gate.on_transcript_token(ev.transcript, ev.is_final)
 
@@ -602,7 +608,7 @@ def wire_trax(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
     def _on_user_state(ev):
         if ev.new_state == "speaking":
             ticker.on_user_started()
-            if agent_speaking["now"]:
+            if agent_speaking["now"] or getattr(session, "agent_state", None) == "speaking":
                 # Barge-in: the cascade aborts, compensates and resets by itself.
                 # Resetting first would wipe the saga log and lose the rollback.
                 asyncio.create_task(barge.on_user_speech_started())
@@ -620,7 +626,7 @@ def wire_trax(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
         @session.on("user_speech_started")
         def _on_user_speech_started():
             ticker.on_user_started()
-            if agent_speaking["now"]:
+            if agent_speaking["now"] or getattr(session, "agent_state", None) == "speaking":
                 asyncio.create_task(barge.on_user_speech_started())
     except Exception:
         pass  # older livekit-agents versions may not emit this event
@@ -674,13 +680,16 @@ if _HAS_LIVEKIT:
 
     @server.rtc_session()
     async def entrypoint(ctx: "agents.JobContext"):
+        from livekit.agents import inference
         from agent.trax_agent import get_realtime_model  # single source of truth: pinned temperature=0.0
 
         stack = build_stack(
             session=None, room_name=ctx.room.name, log_path="/tmp/incar_tool_calls.log",
         )
+        vad = inference.VAD(model="silero")
         session = AgentSession(
             llm=get_realtime_model(),
+            vad=vad,
             tools=llm.find_function_tools(InCarFnc(stack.dispatcher)),
             min_endpointing_delay=0.8,
             max_endpointing_delay=3.0,
