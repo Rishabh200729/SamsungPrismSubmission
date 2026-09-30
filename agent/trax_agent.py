@@ -477,6 +477,8 @@ async def entrypoint(ctx: agents.JobContext):
         tools=tools,
         min_endpointing_delay=1.0,
         max_endpointing_delay=4.0,
+        allow_interruptions=True,
+        min_interruption_duration=0.2,
         # Disable AEC warmup window — without this the first 3s of agent speech
         # silently ignore barge-in attempts (empirically seen in FDB-v3 travel_10).
         # Our BargeInController calls interrupt(force=True) directly, so warmup
@@ -529,6 +531,10 @@ async def entrypoint(ctx: agents.JobContext):
             asyncio.create_task(lifecycle.user_speech_started())
         elif new_state == "listening":
             silence_ticker.user_stopped()
+
+    @session.on("overlapping_speech")
+    def on_overlapping_speech(ev):
+        asyncio.create_task(lifecycle.user_speech_started())
 
     @session.on("user_speech_started")
     def on_user_speech_started():

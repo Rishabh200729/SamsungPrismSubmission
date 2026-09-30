@@ -17,7 +17,7 @@ set -euo pipefail
 FDB_REPO="https://github.com/DanielLin94144/Full-Duplex-Bench"
 FDB_COMMIT="3e799c45a045256f47d5f1c9cda90157e2d2ec9e"
 FDB_DATA_GDRIVE_ID="1SO_4MTazWQ_jvCx0dtmpQ-t40bdd07yz"
-MODE="full"; SKIP_INSTALL=0; LOCAL_EXACT_MATCH=0
+MODE="full"; SKIP_INSTALL=0; LOCAL_EXACT_MATCH="${LOCAL_EXACT_MATCH:-0}"
 
 for arg in "$@"; do
   case "$arg" in
@@ -62,7 +62,7 @@ if [ "$MODE" != "eval" ]; then command -v nvidia-smi >/dev/null || die "an NVIDI
 
 log "2/7 Configuration"
 for env_file in .env .env.local; do
-  if [ -f "$env_file" ]; then set -a; . "./$env_file"; set +a; fi
+  if [ -f "$env_file" ]; then set -a; eval "$(tr -d '\r' < "$env_file")"; set +a; fi
 done
 export LK_PROVIDER="${LK_PROVIDER:-gemini2_5}"
 if [ "$MODE" != "eval" ]; then

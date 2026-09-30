@@ -466,6 +466,9 @@ async def entrypoint(ctx: agents.JobContext):
         tools=tools,
         min_endpointing_delay=1.0,
         max_endpointing_delay=4.0,
+        allow_interruptions=True,
+        min_interruption_duration=0.2,
+        aec_warmup_duration=0.0,
     )
 
     barge = BargeInController(
@@ -513,6 +516,10 @@ async def entrypoint(ctx: agents.JobContext):
             asyncio.create_task(lifecycle.user_speech_started())
         elif new_state == "listening":
             silence_ticker.user_stopped()
+
+    @session.on("overlapping_speech")
+    def on_overlapping_speech(ev):
+        asyncio.create_task(lifecycle.user_speech_started())
 
     @session.on("user_speech_started")
     def on_user_speech_started():
