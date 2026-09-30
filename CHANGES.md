@@ -1,4 +1,4 @@
-# CHANGES — Module/PRISM-core audit and fixes
+# CHANGES — Module/TRAX-core audit and fixes
 
 Everything below was verified by actually running code against the real FDB-v3 evaluator
 (github.com/DanielLin94144/Full-Duplex-Bench, `v3/`), not inferred from reading it. Where a
@@ -70,7 +70,7 @@ count twice just because ASR resent a growing partial).
 
 ## 3. Prompt / tool-schema drift between the live agent and the text benchmark harness
 
-`agent/prism_agent.py` and `scripts/benchmarks/test_gemini_tool_calling.py` each carried an
+`agent/trax_agent.py` and `scripts/benchmarks/test_gemini_tool_calling.py` each carried an
 independent, hand-written copy of the system prompt and the 12 tool descriptions. They had
 already drifted (different wording, `update_search_filter`'s `value` hardcoded to `"string"`
 in the harness, which would misscore any scenario expecting a number or boolean there) — so
@@ -79,7 +79,7 @@ the harness was measuring a different system than the one that ships.
 **Fix:** `agent/tool_specs.py` is now the single source; both the agent
 (`AssistantFnc`'s decorators + dynamically-assigned docstrings) and the harness
 (`FDB_TOOLS = openai_tools()`) build from it. `prism/tests/test_agent_specs_sync.py` imports
-the real `agent/prism_agent.py` (against a small local stub of the `livekit` SDK — see that
+the real `agent/trax_agent.py` (against a small local stub of the `livekit` SDK — see that
 test's docstring for exactly what the stub does and doesn't prove) and checks every tool's
 live description matches the shared spec byte-for-byte; mutation-tested against three
 realistic re-breaks (hardcoding a description back, swapping the prompt, dropping the wiring
@@ -100,11 +100,11 @@ against the real benchmark data, not assumed safe. `scripts/audit_benchmark_leak
 automates this check (whitelisting the organizers' own reference agent's vocabulary so it
 doesn't flag legitimate shared interface terms like `"driving"` or `"BOB12"`) — **run it
 after every prompt edit, and before every submission.** Current result: 0 findings across
-`agent/prism_agent.py`, `agent/tool_specs.py`, `scripts/benchmarks/test_gemini_tool_calling.py`.
+`agent/trax_agent.py`, `agent/tool_specs.py`, `scripts/benchmarks/test_gemini_tool_calling.py`.
 
 ## 5. Wiring gap that would have silently defeated fix #1
 
-`agent/prism_agent.py`'s `entrypoint()` constructed `ToolDispatcher` without
+`agent/trax_agent.py`'s `entrypoint()` constructed `ToolDispatcher` without
 `correction_epoch_fn`, and constructed it *before* `gate = TRPGate()` even existed in scope.
 Without that wiring, the dispatcher falls back to its legacy "same tool name = a correction"
 rule — meaning fix #1 above would exist in `prism/tool_dispatcher.py` but never take effect
@@ -123,7 +123,7 @@ where the fix was novel logic (not just a data change).
 ## Not verified — be honest about these before the demo
 
 - **The live agent was never run against a real LiveKit session or a real realtime model.**
-  `test_agent_specs_sync.py` imports the real `agent/prism_agent.py` against a small local
+  `test_agent_specs_sync.py` imports the real `agent/trax_agent.py` against a small local
   stub of the `livekit` SDK (enough to prove descriptions/prompt/wiring are correct); it does
   not prove the agent behaves correctly end-to-end with real audio. Run the actual agent with
   `livekit-agents` installed before the demo.

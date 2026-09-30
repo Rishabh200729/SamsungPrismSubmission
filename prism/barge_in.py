@@ -31,7 +31,7 @@ from prism.trp_gate import TRPGate
 from prism.tool_dispatcher import ToolDispatcher
 from prism.saga_coordinator import SagaCoordinator
 
-log = logging.getLogger("prism.barge_in")
+log = logging.getLogger("trax.barge_in")
 
 
 class BargeInController:

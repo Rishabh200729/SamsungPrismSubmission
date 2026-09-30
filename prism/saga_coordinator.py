@@ -17,7 +17,7 @@ import logging
 
 from prism import CompensationEntry
 
-log = logging.getLogger("prism.saga")
+log = logging.getLogger("trax.saga")
 
 
 class SagaCoordinator:

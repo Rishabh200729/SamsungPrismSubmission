@@ -35,7 +35,7 @@ from typing import Any, Callable, Optional
 from prism import CompensationEntry, EffectClass, ToolCall, TRPState
 from prism.saga_coordinator import SagaCoordinator
 
-log = logging.getLogger("prism.tool_dispatcher")
+log = logging.getLogger("trax.tool_dispatcher")
 
 
 # ---------------------------------------------------------------------------

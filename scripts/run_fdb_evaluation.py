@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scripts/run_fdb_evaluation.py — PRISM Evaluation Runner
+scripts/run_fdb_evaluation.py — TRAX Evaluation Runner
 Runs evaluation scenarios against an untouched FDB-v3 clone directory.
 """
 
@@ -48,7 +48,7 @@ def run_evaluation(fdb_path: Path, scenarios: list[str], use_llm: bool = False, 
     results = []
 
     print("=" * 80)
-    print(f"PRISM EVALUATION RUNNER — Target: {fdb_path.name} | LLM Judge: {use_llm}")
+    print(f"TRAX EVALUATION RUNNER — Target: {fdb_path.name} | LLM Judge: {use_llm}")
     print("=" * 80)
 
     for scen_id in scenarios:
@@ -104,7 +104,7 @@ def run_evaluation(fdb_path: Path, scenarios: list[str], use_llm: bool = False, 
 
 
 def main():
-    parser = argparse.ArgumentParser(description="PRISM FDB Benchmark Evaluator")
+    parser = argparse.ArgumentParser(description="TRAX FDB Benchmark Evaluator")
     parser.add_argument("--fdb-path", type=str, default="external/FDB-v3/v3",
                         help="Path to FDB-v3 repository root")
     parser.add_argument("--scenarios", nargs="+", default=["travel_10", "travel_19"],

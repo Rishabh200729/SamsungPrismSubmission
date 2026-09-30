@@ -1,5 +1,5 @@
 """
-Regression tests for defects found by auditing PRISM against the REAL FDB-v3 evaluator
+Regression tests for defects found by auditing TRAX against the REAL FDB-v3 evaluator
 (github.com/DanielLin94144/Full-Duplex-Bench, v3/).
 
 Why these matter for the score
@@ -135,7 +135,7 @@ class TestLegitimateRepeatsSurvive(DispatcherCase):
 
 
 class TestRepairsStillSupersede(DispatcherCase):
-    """The intended PRISM behaviour must survive: a real repair discards the stale call."""
+    """The intended TRAX behaviour must survive: a real repair discards the stale call."""
 
     async def test_repaired_read_only_call_is_superseded(self):
         d = self.make()

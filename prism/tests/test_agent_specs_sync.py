@@ -1,7 +1,7 @@
 """
 prism/tests/test_agent_specs_sync.py
 
-Imports agent/prism_agent.py against a minimal LOCAL STUB of the livekit SDK (see
+Imports agent/trax_agent.py against a minimal LOCAL STUB of the livekit SDK (see
 _livekit_stub/) so this test can run without the real livekit-agents package installed.
 
 HONESTY NOTE: the stub only replicates enough of livekit.agents' surface (Agent,
@@ -10,7 +10,7 @@ module import and to let @ai_callable_decorator run and record what it was calle
 It does NOT prove the agent works against a real LiveKit session or a real realtime model —
 only that the tool descriptions, docstrings and prompt actually loaded from
 agent/tool_specs.py (the thing this task set out to fix), and that the source wiring for
-correction_epoch_fn is present. Run the real agent (`python agent/prism_agent.py`) with
+correction_epoch_fn is present. Run the real agent (`python agent/trax_agent.py`) with
 livekit-agents actually installed before the demo; this test is a fast, CI-friendly proxy
 for the specific regression class it targets, not a substitute for that.
 """
@@ -33,10 +33,10 @@ def _import_agent_with_stub():
     import dotenv  # real dependency, should already be installed
     dotenv.load_dotenv = lambda *a, **k: None  # no .env file needed for this test
     import importlib
-    if "agent.prism_agent" in sys.modules:
-        importlib.reload(sys.modules["agent.prism_agent"])
-        return sys.modules["agent.prism_agent"]
-    return importlib.import_module("agent.prism_agent")
+    if "agent.trax_agent" in sys.modules:
+        importlib.reload(sys.modules["agent.trax_agent"])
+        return sys.modules["agent.trax_agent"]
+    return importlib.import_module("agent.trax_agent")
 
 
 class TestAgentBuildsFromSharedSpecs(unittest.TestCase):

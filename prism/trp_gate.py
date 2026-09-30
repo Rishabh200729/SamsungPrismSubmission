@@ -27,7 +27,7 @@ from typing import Callable, Coroutine, List, Optional
 
 from prism import TRPState
 
-log = logging.getLogger("prism.trp_gate")
+log = logging.getLogger("trax.trp_gate")
 
 
 # ---------------------------------------------------------------------------

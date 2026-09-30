@@ -23,19 +23,19 @@ case "${1:-demo}" in
   demo|offline)
     echo ""
     echo "╔══════════════════════════════════════════════════════════════════════╗"
-    echo "║       PRISM In-Car Navigation — Offline Deterministic Demo           ║"
+    echo "║       TRAX In-Car Navigation — Offline Deterministic Demo           ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo ""
     python -m agent.extension_incar --demo
     ;;
   test)
     echo ""
-    echo "Running PRISM Extension Unit Tests..."
+    echo "Running TRAX Extension Unit Tests..."
     python -m unittest prism.tests.test_extension_incar -v
     ;;
   live)
     echo ""
-    echo "Starting PRISM In-Car Navigation — Live LiveKit Voice Agent..."
+    echo "Starting TRAX In-Car Navigation — Live LiveKit Voice Agent..."
     echo "(Requires LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, GOOGLE_API_KEY in .env)"
     echo ""
     python -m agent.extension_incar dev

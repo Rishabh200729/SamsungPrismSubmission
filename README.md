@@ -1,4 +1,4 @@
-# PRISM: Voice-Native Interruptible Real-Time Agent Architecture
+# TRAX: Voice-Native Interruptible Real-Time Agent Architecture
 
 **Samsung PRISM GenAI Hackathon 3.0 — Theme 05: Interruptible Real-Time Agents**  
 **Target Benchmark**: Full-Duplex-Bench-v3 (`external/FDB-v3/v3/` — Lin et al., arXiv:2604.04847)  
@@ -12,9 +12,9 @@ Full-duplex voice agents fail catastrophically when human speakers hesitate, sel
 
 The root cause is a fundamental impedance mismatch: **acoustic Voice Activity Detectors (VADs) eagerly trigger tool executions before the human speaker has reached pragmatic closure**, permanently committing stale parameters (*reparanda*) to enterprise backends.
 
-PRISM resolves this by adapting the transactional tool-commit model of **Atomix** (*"Atomix: Timely, Transactional Tool Use for Reliable Agentic Workflows"*, Adepu et al., arXiv:2602.14849) to the voice/turn-taking domain:
+TRAX resolves this by adapting the transactional tool-commit model of **Atomix** (*"Atomix: Timely, Transactional Tool Use for Reliable Agentic Workflows"*, Adepu et al., arXiv:2602.14849) to the voice/turn-taking domain:
 * **The Atomix Base**: We utilize Atomix's effect taxonomy (`READ_ONLY`, `COMPENSABLE`, `IRREVERSIBLE`), speculative execution isolation, and Saga-style compensation (Garcia-Molina & Salem 1987).
-* **Our Core Voice Contribution**: In Atomix, the safety predicate is computational (*"has prior orchestrator work on this resource finished?"* — an epoch/frontier signal). In PRISM, we replace the computational frontier with a **disfluency-aware Transition Relevance Place (TRP) gate** derived from streaming linguistic analysis of real-time human speech (Levelt 1983; Raux & Eskenazi 2009). Tool commit is gated not on computational job completion, but on whether the human speaker has completed their repair (*reparans*) and reached a syntactically and pragmatically complete turn boundary.
+* **Our Core Voice Contribution**: In Atomix, the safety predicate is computational (*"has prior orchestrator work on this resource finished?"* — an epoch/frontier signal). In TRAX, we replace the computational frontier with a **disfluency-aware Transition Relevance Place (TRP) gate** derived from streaming linguistic analysis of real-time human speech (Levelt 1983; Raux & Eskenazi 2009). Tool commit is gated not on computational job completion, but on whether the human speaker has completed their repair (*reparans*) and reached a syntactically and pragmatically complete turn boundary.
 
 ---
 
@@ -27,8 +27,8 @@ Empirical evaluation on Full-Duplex-Bench-v3 revealed two failure modes across a
 1. **The Premature Tool Execution Race**: On self-correction queries (e.g., *"Looking at flights to Miami on October 5th. Oh wait... make that October 7th"*), fixed-threshold acoustic VADs trigger API execution during the brief 200–400ms pause following *"October 5th"*. The agent searches for October 5th, responds over the user, and scores 0.0 on Pass@1.
 2. **AEC Warmup Interruption Lockout**: Default agent frameworks enforce a 3.00s Acoustic Echo Cancellation (AEC) warmup lockout upon entering the speaking state, completely deafening the agent to human barge-in attempts.
 
-### 2.2 Atomix vs. PRISM: Conceptual Alignment
-| Dimension | Atomix (arXiv:2602.14849) | PRISM (Our Architecture) |
+### 2.2 Atomix vs. TRAX: Conceptual Alignment
+| Dimension | Atomix (arXiv:2602.14849) | TRAX (Our Architecture) |
 |:---|:---|:---|
 | **Domain** | Text-based asynchronous agentic workflows | Full-duplex real-time voice agents |
 | **Commit Safety Predicate** | Computational frontier (prior node completion) | Linguistic TRP Gate (Levelt repair completion) |
@@ -47,13 +47,13 @@ Empirical evaluation on Full-Duplex-Bench-v3 revealed two failure modes across a
 
 ## 3. System Architecture & Module Breakdown
 
-The PRISM architecture is implemented in the top-level `prism/` package, and exposed through a self-contained agent in `agent/`:
+The TRAX architecture is implemented in the top-level `prism/` package, and exposed through a self-contained agent in `agent/`:
 
 ```
 SamsungPrismSubmission/
 ├── RESEARCH.md                              # Comprehensive 17-paper research dossier & ADRs
 ├── README.md                                # Authoritative documentation & user guide
-├── prism/                                   # Core PRISM transaction & gating layer
+├── prism/                                   # Core TRAX transaction & gating layer
 │   ├── __init__.py                          # Data types: TRPState, EffectClass, ToolCall, CompensationEntry
 │   ├── trp_gate.py                          # Disfluency-aware TRP gate & dynamic VAD inflation
 │   ├── tool_dispatcher.py                   # Two-Phase Transactional Tooling (TPTT)
@@ -67,7 +67,7 @@ SamsungPrismSubmission/
 │       └── test_integration.py
 ├── agent/                                   # Real-time Voice Agent & CLI launcher
 │   ├── __init__.py                          # Public agent package exports
-│   ├── prism_agent.py                       # LiveKit multimodal agent integrating PRISM
+│   ├── trax_agent.py                       # LiveKit multimodal agent integrating TRAX
 │   └── run.py                               # CLI entrypoint (python -m agent.run dev)
 ├── scripts/                                 # Evaluation runners & benchmark utilities
 │   ├── run_fdb_evaluation.py                # Automated evaluation harness for FDB-v3
@@ -94,8 +94,8 @@ SamsungPrismSubmission/
 4. **Barge-In Controller ([prism/barge_in.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/prism/barge_in.py))**:
    * Bypasses AEC warmup lockout delays.
    * Detects user speech onset while agent is speaking, immediately halts playback (`session.interrupt()`), purges pending calls, triggers Saga compensation, and resets state.
-5. **PRISM Agent ([agent/prism_agent.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/agent/prism_agent.py))**:
-   * Full-duplex LiveKit multimodal agent integrating PRISM components with native realtime models (Gemini Live API).
+5. **TRAX Agent ([agent/trax_agent.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/agent/trax_agent.py))**:
+   * Full-duplex LiveKit multimodal agent integrating TRAX components with native realtime models (Gemini Live API).
 
 ---
 
@@ -139,7 +139,7 @@ OK
 ```
 Covers: Levelt editing terms regex matching, syntactic incompleteness heuristics, dynamic silence thresholding (300ms vs 900ms), LIFO Saga compensation order, fault-tolerant rollback isolation, speculative buffer supersession, abort purge without telemetry leakage, and end-to-end multi-turn flows.
 
-### 5.2 Launching the PRISM Voice Agent
+### 5.2 Launching the TRAX Voice Agent
 To start the LiveKit real-time voice agent worker:
 
 ```bash
@@ -151,7 +151,7 @@ python -m agent.run start
 ```
 
 ### 5.3 Running End-to-End Evaluation Against Stock FDB-v3
-PRISM evaluates directly against an untouched, vanilla clone of Full-Duplex-Bench:
+TRAX evaluates directly against an untouched, vanilla clone of Full-Duplex-Bench:
 
 ```bash
 # 1. Exact-Match Argument Evaluation (use_llm=False)

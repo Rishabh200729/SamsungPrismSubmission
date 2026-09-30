@@ -5,7 +5,7 @@ Samsung PRISM GenAI Hackathon 3.0 — Theme 05 (Extension, 20% of Round 1 score)
 
 A driver navigates by voice and changes their mind mid-route:
 "take me to the city mall... no wait, actually the airport".
-The PRISM stack that protects the FDB-v3 benchmark now protects a stateful,
+The TRAX stack that protects the FDB-v3 benchmark now protects a stateful,
 real-world action (the vehicle's active route):
 
   TRPGate           holds the floor while the driver repairs the sentence
@@ -211,7 +211,7 @@ class NavRegistry:
 
 
 # ------------------------------------------------------------------------------
-# PRISM dispatcher specialised for the in-car tools
+# TRAX dispatcher specialised for the in-car tools
 # ------------------------------------------------------------------------------
 
 class InCarDispatcher(ToolDispatcher):
@@ -390,7 +390,7 @@ _INSTRUCTIONS = (
 
 def wire_prism(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
                saga: SagaCoordinator, barge: BargeInController) -> SilenceTicker:
-    """Connect LiveKit session events to the PRISM layers."""
+    """Connect LiveKit session events to the TRAX layers."""
     ticker = SilenceTicker(gate)
     agent_speaking = {"now": False}
 
@@ -432,7 +432,7 @@ if _HAS_LIVEKIT:
     _tool = llm.function_tool if hasattr(llm, "function_tool") else llm.ai_callable
 
     class InCarFnc:
-        """Tool declarations exposed to the realtime model; every call goes through PRISM."""
+        """Tool declarations exposed to the realtime model; every call goes through TRAX."""
 
         def __init__(self, dispatcher: InCarDispatcher) -> None:
             self._dispatcher = dispatcher
@@ -494,7 +494,7 @@ if _HAS_LIVEKIT:
 
 
 # ------------------------------------------------------------------------------
-# Offline demo — real PRISM components, scripted driver + model, hard assertions
+# Offline demo — real TRAX components, scripted driver + model, hard assertions
 # ------------------------------------------------------------------------------
 
 async def run_demo() -> bool:

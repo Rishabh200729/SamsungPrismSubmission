@@ -5,7 +5,7 @@ Samsung PRISM GenAI Hackathon 3.0 — Theme 05 (Extension, 20% of Round 1 score)
 
 A driver navigates by voice and changes their mind mid-route:
 "take me to the city mall... no wait, actually the airport".
-The PRISM stack that protects the FDB-v3 benchmark now protects a stateful,
+The TRAX stack that protects the FDB-v3 benchmark now protects a stateful,
 real-world action (the vehicle's active route):
 
   TRPGate           holds the floor while the driver repairs the sentence
@@ -77,7 +77,7 @@ try:
 except ImportError:
     _HAS_LIVEKIT = False
 
-log = logging.getLogger("prism.incar")
+log = logging.getLogger("trax.incar")
 
 
 # ------------------------------------------------------------------------------
@@ -286,7 +286,7 @@ class NavRegistry:
 
 
 # ------------------------------------------------------------------------------
-# PRISM dispatcher specialised for the in-car tools
+# TRAX dispatcher specialised for the in-car tools
 # ------------------------------------------------------------------------------
 
 class InCarDispatcher(ToolDispatcher):
@@ -534,7 +534,7 @@ def build_stack(session: Any = None, latency_s: float = 0.15, log_path: Optional
 # ------------------------------------------------------------------------------
 
 _INSTRUCTIONS = (
-    "You are PRISM Nav, an intelligent in-car voice assistant. "
+    "You are TRAX Nav, an intelligent in-car voice assistant. "
     "You help the driver navigate, find places, and preview routes — all hands-free. "
     "Keep responses natural, warm, and conversational (2–3 sentences). "
     "RULES:\n"
@@ -552,9 +552,9 @@ _INSTRUCTIONS = (
 )
 
 
-def wire_prism(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
+def wire_trax(session: Any, gate: TRPGate, dispatcher: InCarDispatcher,
                saga: SagaCoordinator, barge: InCarBargeIn) -> SilenceTicker:
-    """Connect LiveKit session events to the PRISM layers."""
+    """Connect LiveKit session events to the TRAX layers."""
     ticker = SilenceTicker(gate)
     agent_speaking = {"now": False}
 
@@ -613,7 +613,7 @@ if _HAS_LIVEKIT:
     _tool = llm.function_tool if hasattr(llm, "function_tool") else llm.ai_callable
 
     class InCarFnc:
-        """Tool declarations exposed to the realtime model; every call goes through PRISM."""
+        """Tool declarations exposed to the realtime model; every call goes through TRAX."""
 
         def __init__(self, dispatcher: InCarDispatcher) -> None:
             self._dispatcher = dispatcher
@@ -655,7 +655,7 @@ if _HAS_LIVEKIT:
 
     @server.rtc_session()
     async def entrypoint(ctx: "agents.JobContext"):
-        from agent.prism_agent import get_realtime_model  # single source of truth: pinned temperature=0.0
+        from agent.trax_agent import get_realtime_model  # single source of truth: pinned temperature=0.0
 
         stack = build_stack(
             session=None, room_name=ctx.room.name, log_path="/tmp/incar_tool_calls.log",
@@ -674,12 +674,12 @@ if _HAS_LIVEKIT:
             min_interruption_duration=0.25,
         )
         stack.bind_session(session)
-        wire_prism(session, stack.gate, stack.dispatcher, stack.saga, stack.barge)
+        wire_trax(session, stack.gate, stack.dispatcher, stack.saga, stack.barge)
         await session.start(room=ctx.room, agent=InCarVoiceAgent())
 
 
 # ------------------------------------------------------------------------------
-# Offline demo — real PRISM components, scripted driver + model, hard assertions
+# Offline demo — real TRAX components, scripted driver + model, hard assertions
 # ------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -753,7 +753,7 @@ class _Dashboard:
             lines.append(f"[bold]SAGA RESTORE MEMORY:[/bold]  {self.prev_dest}")
         lines.append("")
         gate_color = "yellow" if "REPAIR" in self.gate_state else ("green" if "CONFIRM" in self.gate_state else "cyan")
-        lines.append(f"[bold]PRISM TRP GATE:[/bold]       [{gate_color}]{self.gate_state}[/{gate_color}]")
+        lines.append(f"[bold]TRAX TRP GATE:[/bold]       [{gate_color}]{self.gate_state}[/{gate_color}]")
         if self.barge_events:
             lines.append(f"[bold]BARGE-IN:[/bold]             [red]{self.barge_events[-1]}[/red]")
 
@@ -767,7 +767,7 @@ class _Dashboard:
         body = "\n".join(lines)
         return _Panel(
             body,
-            title="[bold blue]PRISM IN-CAR INTELLIGENT NAVIGATION SYSTEM[/bold blue]",
+            title="[bold blue]TRAX IN-CAR INTELLIGENT NAVIGATION SYSTEM[/bold blue]",
             border_style="blue",
             padding=(1, 2),
         )
@@ -776,7 +776,7 @@ class _Dashboard:
         if _HAS_RICH and self._console:
             self._console.print(self._build_panel())
         else:
-            print("\n=== PRISM DASHBOARD ===")
+            print("\n=== TRAX DASHBOARD ===")
             print(f"  ACTIVE DESTINATION : {self.active_dest}")
             print(f"  ETA                : {self.eta_min} min  ({self.dist_km} km)")
             print(f"  VIA                : {self.via_road}")
@@ -790,7 +790,7 @@ class _Dashboard:
 
 
 async def run_demo() -> bool:
-    logging.getLogger("prism").setLevel(logging.WARNING)
+    logging.getLogger("trax").setLevel(logging.WARNING)
     t0 = time.monotonic()
     dash = _Dashboard()
 
@@ -827,10 +827,10 @@ async def run_demo() -> bool:
 
         # ── Print header ──────────────────────────────────────────────────────
         if _HAS_RICH:
-            _Console().rule("[bold blue]PRISM In-Car Navigation — Demo Walkthrough[/bold blue]")
+            _Console().rule("[bold blue]TRAX In-Car Navigation — Demo Walkthrough[/bold blue]")
         else:
             print("\n" + "=" * 70)
-            print("   PRISM In-Car Navigation — Demo Walkthrough")
+            print("   TRAX In-Car Navigation — Demo Walkthrough")
             print("=" * 70)
 
         # ── Scenario 1: initial route ──────────────────────────────────────────
@@ -970,7 +970,7 @@ async def run_demo() -> bool:
         for i, m in enumerate(s.nav.mutations, 1):
             t.add_row(str(i), m["op"], str(m["from"]), str(m["to"]))
         console.print(t)
-        console.rule("[bold]PRISM Verification Checks[/bold]")
+        console.rule("[bold]TRAX Verification Checks[/bold]")
         for name, ok in checks.items():
             color = "green" if ok else "red"
             icon = "✓" if ok else "✗"

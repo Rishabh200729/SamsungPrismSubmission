@@ -1,4 +1,4 @@
-"""Minimal stand-in for livekit.agents, just enough surface to import agent/prism_agent.py
+"""Minimal stand-in for livekit.agents, just enough surface to import agent/trax_agent.py
 and inspect it WITHOUT the real SDK installed. Not a functional agent runtime."""
 import inspect as _inspect
 

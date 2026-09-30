@@ -1,6 +1,6 @@
 """
 agent package — Voice-Native Interruptible Real-Time Agent
-Samsung PRISM GenAI Hackathon 3.0 — Theme 05
+Samsung TRAX GenAI Hackathon 3.0 — Theme 05
 """
 
 from prism import TRPState, EffectClass, ToolCall

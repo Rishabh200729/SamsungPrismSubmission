@@ -1,6 +1,6 @@
 """
 prism/__init__.py
-Shared data types for the PRISM voice-transactional layer.
+Shared data types for the TRAX voice-transactional layer.
 
 Design basis: Atomix (arXiv:2602.14849) effect taxonomy adapted to the voice domain.
 All 12 tool names and classifications verified against benchmark_data_v2.json and mock_apis.py.

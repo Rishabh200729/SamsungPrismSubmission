@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-agent/prism_agent.py — TRAX Real-Time Voice Agent Entrypoint
+agent/trax_agent.py — TRAX Real-Time Voice Agent Entrypoint
 Samsung PRISM GenAI Hackathon 3.0 — Theme 05: Interruptible Real-Time Agents
 
 Clean top-level voice agent that implements the Two-Phase Transactional Tooling (TPTT)
@@ -42,7 +42,7 @@ from prism.saga_coordinator import SagaCoordinator
 from prism.barge_in import BargeInController
 # ──────────────────────────────────────────────────────────────────────────────
 
-log = logging.getLogger("prism.agent")
+log = logging.getLogger("trax.agent")
 
 
 # ------------------------------------------------------------------------------

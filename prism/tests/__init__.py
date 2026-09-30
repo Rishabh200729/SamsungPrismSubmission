@@ -1,1 +1,1 @@
-# PRISM Unit & Integration Test Suite
+# TRAX Unit & Integration Test Suite

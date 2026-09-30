@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# PRISM - one-command reproduction of Full-Duplex-Bench v3 (install -> configure -> infer -> evaluate).
+# TRAX - one-command reproduction of Full-Duplex-Bench v3 (install -> configure -> infer -> evaluate).
 #
 #   ./scripts/reproduce_benchmark.sh              full run, all 100 recordings
 #   ./scripts/reproduce_benchmark.sh --smoke      2 recordings: validates the whole pipeline first
 #   ./scripts/reproduce_benchmark.sh --eval-only  re-score existing result files, no inference
 #   ./scripts/reproduce_benchmark.sh --skip-install   reuse the current .venv as is
 #
-# Declared agent: PRISM (prism/ + agent/prism_agent.py) on Gemini 2.5 Live
+# Declared agent: TRAX (prism/ + agent/trax_agent.py) on Gemini 2.5 Live
 #   (gemini-2.5-flash-native-audio-preview-12-2025, temperature 0.0) through LiveKit Cloud.
 #   LK_PROVIDER=gpt_realtime switches to GPT-Realtime (needs OPENAI_API_KEY).
 # Needs: Linux, NVIDIA GPU + CUDA (stock FDB-v3 ASR is NeMo parakeet), ffmpeg, git, python3.10+,
@@ -59,7 +59,7 @@ if [ "$MODE" != "eval" ]; then
   case "$LK_PROVIDER" in
     gemini2_5) need GOOGLE_API_KEY; MODEL="${GOOGLE_MODEL:-gemini-2.5-flash-native-audio-preview-12-2025}" ;;
     gpt_realtime) need OPENAI_API_KEY; MODEL="${OPENAI_MODEL:-gpt-4o-realtime-preview}" ;;
-    *) die "unsupported LK_PROVIDER=$LK_PROVIDER (PRISM agent supports gemini2_5, gpt_realtime)" ;;
+    *) die "unsupported LK_PROVIDER=$LK_PROVIDER (TRAX agent supports gemini2_5, gpt_realtime)" ;;
   esac
 else
   MODEL="n/a (eval-only)"
@@ -124,7 +124,7 @@ cleanup() {
 trap cleanup EXIT
 
 if [ "$MODE" != "eval" ]; then
-  log "4/6 Start PRISM agent and stream recordings"
+  log "4/6 Start TRAX agent and stream recordings"
   rm -f /tmp/agent_tool_calls.log /tmp/agent_heartbeat.log      # fresh telemetry; nothing carried over
   python -m agent.run start >"$OUT/agent.log" 2>&1 &
   AGENT_PID=$!
@@ -170,7 +170,7 @@ def sh(*a):
 cfg = {
     "run_id": os.environ["RUN_ID"], "mode": os.environ["MODE"],
     "date_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-    "agent": "PRISM (prism/ + agent/prism_agent.py)", "provider": os.environ["LK_PROVIDER"],
+    "agent": "TRAX (prism/ + agent/trax_agent.py)", "provider": os.environ["LK_PROVIDER"],
     "model": os.environ["MODEL"], "temperature": 0.0,
     "seed": None, "seed_note": "hosted realtime APIs expose no seed; determinism relies on temperature 0.0",
     "judge": os.environ["JUDGE"], "fdb_commit": os.environ["FDB_COMMIT"],

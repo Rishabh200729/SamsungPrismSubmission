@@ -17,7 +17,7 @@ Compliance rules for editing this file
   `python scripts/audit_benchmark_leakage.py` after every edit; it must report 0 findings.
 * State general rules ("IDs are one continuous alphanumeric string"), not answer keys.
 * Do not tell the model to "execute immediately".  Acting before the user's FINAL intent is
-  clear is the root cause of the stale-call failures PRISM exists to prevent.
+  clear is the root cause of the stale-call failures TRAX exists to prevent.
 """
 
 from __future__ import annotations
