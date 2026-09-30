@@ -18,7 +18,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from dotenv import load_dotenv
 from livekit import agents
@@ -27,6 +27,19 @@ from livekit.agents import Agent, AgentSession, AgentServer, llm
 # Load local environment
 load_dotenv(".env")
 load_dotenv(".env.local")
+
+# LiveKit registers plugins when their modules are imported, and requires that
+# registration to happen on the worker's main thread.  Import the selected
+# provider here (module initialization), rather than lazily inside a job task.
+_REALTIME_PLUGIN = None
+_REALTIME_PROVIDER = os.getenv("LK_PROVIDER", "gemini2_5")
+try:
+    if _REALTIME_PROVIDER == "gemini2_5":
+        from livekit.plugins import google as _REALTIME_PLUGIN
+    elif _REALTIME_PROVIDER == "gpt_realtime":
+        from livekit.plugins import openai as _REALTIME_PLUGIN
+except Exception:
+    _REALTIME_PLUGIN = None
 
 # Compatibility for different livekit-agents versions
 if hasattr(llm, "function_tool"):
@@ -40,11 +53,10 @@ from prism.trp_gate import TRPGate
 from prism.tool_dispatcher import ToolDispatcher, EFFECT_MAP
 from prism.saga_coordinator import SagaCoordinator
 from prism.barge_in import BargeInController
-# ── Single source of truth for prompts and tool schemas ──────────────────────
 from agent.tool_specs import SYSTEM_PROMPT, TOOL_SPECS
 # ──────────────────────────────────────────────────────────────────────────────
 
-log = logging.getLogger("trax.agent")
+log = logging.getLogger("prism.agent")
 
 
 # ------------------------------------------------------------------------------
@@ -81,9 +93,6 @@ def get_api_registry():
     return BuiltinMockRegistry()
 
 
-_GLOBAL_REGISTRY = get_api_registry()
-
-
 # ------------------------------------------------------------------------------
 # Latency Tracker
 # ------------------------------------------------------------------------------
@@ -115,20 +124,87 @@ class LatencyTracker:
         report += f"  - Synthesis (Tool -> Spoken): {synthesis:.2f}s\n"
         report += f"  - TOTAL SEARCH LATENCY:      {total:.2f}s\n"
         log.info(report)
+        metrics = {
+            "room": room_name,
+            "tool_name": tool_name,
+            "user_done_at": self.user_done_at,
+            "tool_start_at": self.tool_start_at,
+            "tool_end_at": self.tool_end_at,
+            "agent_start_at": self.agent_start_at,
+            "reasoning": round(reasoning, 6),
+            "execution": round(execution, 6),
+            "synthesis": round(synthesis, 6),
+            "total": round(total, 6),
+        }
+        heartbeat_path = os.getenv("PRISM_HEARTBEAT_PATH", "/tmp/agent_heartbeat.log")
+        try:
+            with open(heartbeat_path, "a", encoding="utf-8") as heartbeat:
+                heartbeat.write("LATENCY_TRACK_JSON: " + json.dumps(metrics) + "\n")
+        except OSError as exc:
+            log.warning("Unable to write latency record: %s", exc)
+
+
+class SilenceTicker:
+    """Emit elapsed silence marks and cancel them as soon as the user resumes."""
+
+    def __init__(self, gate: TRPGate) -> None:
+        self._gate = gate
+        self._task: Optional[asyncio.Task] = None
+
+    def user_started(self) -> None:
+        if self._task and not self._task.done():
+            self._task.cancel()
+        self._task = None
+
+    def user_stopped(self) -> None:
+        self.user_started()
+
+        async def emit_marks() -> None:
+            previous = 0
+            for mark in (300, 500, 900):
+                await asyncio.sleep((mark - previous) / 1000.0)
+                previous = mark
+                await self._gate.on_silence_detected(mark)
+
+        self._task = asyncio.create_task(emit_marks())
+
+
+class TurnLifecycleCoordinator:
+    """Serializes duplicate VAD onset events and preserves continued turns."""
+
+    def __init__(
+        self,
+        gate: TRPGate,
+        dispatcher: ToolDispatcher,
+        saga: SagaCoordinator,
+        barge: BargeInController,
+        silence_ticker: SilenceTicker,
+    ) -> None:
+        self._gate = gate
+        self._dispatcher = dispatcher
+        self._saga = saga
+        self._barge = barge
+        self._silence_ticker = silence_ticker
+        self._lock = asyncio.Lock()
+
+    async def user_speech_started(self) -> None:
+        self._silence_ticker.user_started()
+        async with self._lock:
+            if self._barge.is_handling_barge_in:
+                return
+            if await self._barge.on_user_speech_started():
+                return
+            # LISTENING and REPAIRING are an ongoing utterance.  Resetting here
+            # would discard correction evidence and uncommitted work.
+            if self._gate.state in (TRPState.TRP_CONFIRMED, TRPState.ABORTED):
+                self._gate.reset_for_new_turn()
+                self._dispatcher.reset_for_new_turn()
+                self._saga.clear_for_new_turn()
 
 
 # ------------------------------------------------------------------------------
 # Assistant Function Tool Suite
 # ------------------------------------------------------------------------------
-
-
-def _build_param_doc(tool_name: str) -> str:
-    """Build an Args: docstring from TOOL_SPECS[tool_name]['params']."""
-    lines = ["Args:"]
-    for pname, pinfo in TOOL_SPECS[tool_name]["params"].items():
-        lines.append(f"    {pname}: {pinfo['description']}")
-    return "\n".join(lines)
-
 
 class AssistantFnc:
     """Tool function declarations exposed to the real-time model."""
@@ -140,6 +216,11 @@ class AssistantFnc:
 
     @ai_callable_decorator(description=TOOL_SPECS["search_flights"]["description"])
     async def search_flights(self, destination: str, date: str):
+        """
+        Args:
+            destination: The city or airport. Preserve the user's exact wording.
+            date: The travel date in natural-language format.
+        """
         # Canonical benchmark date formatting
         if isinstance(date, str):
             m = re.match(r"^\d{4}-(\d{2})-(\d{2})$", date.strip())
@@ -223,6 +304,13 @@ class AssistantFnc:
         max_price: float = None,
         pets_allowed: bool = None,
     ):
+        """
+        Args:
+            city: City to search in.
+            bedrooms: Number of bedrooms required.
+            max_price: Maximum monthly rent budget as a number (not a string).
+            pets_allowed: Set to true when user mentions pets or pet-friendly. Required when pets mentioned.
+        """
         args = {}
         if city is not None: args["city"] = city
         if bedrooms is not None: args["bedrooms"] = bedrooms
@@ -240,6 +328,12 @@ class AssistantFnc:
 
     @ai_callable_decorator(description=TOOL_SPECS["calculate_commute"]["description"])
     async def calculate_commute(self, origin_address: str, destination_address: str, mode: str = "driving"):
+        """
+        Args:
+            origin_address: Starting address. Preserve any user-supplied description verbatim.
+            destination_address: Destination. Preserve any user-supplied description verbatim.
+            mode: Requested transport mode. Defaults to driving.
+        """
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
             name="calculate_commute",
@@ -250,7 +344,7 @@ class AssistantFnc:
         return result_json
 
     @ai_callable_decorator(description=TOOL_SPECS["update_search_filter"]["description"])
-    async def update_search_filter(self, filter_name: str, value):
+    async def update_search_filter(self, filter_name: str, value: Union[str, int, float, bool]):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
             name="update_search_filter",
@@ -298,12 +392,6 @@ class AssistantFnc:
         return result_json
 
 
-# Patch docstrings from TOOL_SPECS so that inspect.getdoc() returns the canonical
-# parameter descriptions (test_agent_specs_sync.py verifies these).
-for _tool_name in ("search_flights", "search_apartments", "calculate_commute"):
-    getattr(AssistantFnc, _tool_name).__doc__ = _build_param_doc(_tool_name)
-
-
 # ------------------------------------------------------------------------------
 # Realtime Model Provider Factory
 # ------------------------------------------------------------------------------
@@ -311,15 +399,22 @@ for _tool_name in ("search_flights", "search_apartments", "calculate_commute"):
 def get_realtime_model():
     provider = os.getenv("LK_PROVIDER", "gemini2_5")
     if provider == "gemini2_5":
-        from livekit.plugins import google
-        return google.realtime.RealtimeModel(
+        if provider != _REALTIME_PROVIDER or _REALTIME_PLUGIN is None:
+            raise RuntimeError(
+                "LK_PROVIDER changed after LiveKit plugin initialization; restart the worker"
+            )
+        return _REALTIME_PLUGIN.realtime.RealtimeModel(
             model=os.getenv("GOOGLE_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025"),
             voice=os.getenv("GOOGLE_VOICE", "Puck"),
             temperature=0.0,   # pin for deterministic, reproducible benchmark re-runs
+            language="en-US",  # prevent auto-detection switching to non-English
         )
     elif provider == "gpt_realtime":
-        from livekit.plugins import openai
-        return openai.realtime.RealtimeModel(
+        if provider != _REALTIME_PROVIDER or _REALTIME_PLUGIN is None:
+            raise RuntimeError(
+                "LK_PROVIDER changed after LiveKit plugin initialization; restart the worker"
+            )
+        return _REALTIME_PLUGIN.realtime.RealtimeModel(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-realtime-preview"),
             voice=os.getenv("OPENAI_VOICE", "alloy"),
             temperature=0.0,   # pin for deterministic, reproducible benchmark re-runs
@@ -333,9 +428,9 @@ def get_realtime_model():
 
 class VoiceAgent(Agent):
     def __init__(self) -> None:
-        super().__init__(
-            instructions=SYSTEM_PROMPT,
-        )
+        # One shared, general-purpose instruction source prevents stale or
+        # scenario-specific copies from drifting into the live agent.
+        super().__init__(instructions=SYSTEM_PROMPT)
 
 
 server = AgentServer()
@@ -349,12 +444,14 @@ async def entrypoint(ctx: agents.JobContext):
     tracker = LatencyTracker()
 
     # ── TRAX Transactional Layer ─────────────────────────────────────────────
+    # Every LiveKit room receives fresh mutable backend/session state.
+    registry = get_api_registry()
     saga = SagaCoordinator()
     gate = TRPGate()
     dispatcher = ToolDispatcher(
-        registry_fn=_GLOBAL_REGISTRY.call,
+        registry_fn=registry.call,
         saga=saga,
-        tool_log_path="/tmp/agent_tool_calls.log",
+        tool_log_path=os.getenv("PRISM_TOOL_LOG_PATH", "/tmp/agent_tool_calls.log"),
         room_name=ctx.room.name,
         correction_epoch_fn=lambda: gate.correction_epoch,
     )
@@ -377,6 +474,8 @@ async def entrypoint(ctx: agents.JobContext):
         dispatcher=dispatcher,
         saga=saga,
     )
+    silence_ticker = SilenceTicker(gate)
+    lifecycle = TurnLifecycleCoordinator(gate, dispatcher, saga, barge, silence_ticker)
 
     # ── Realtime Event Handlers ───────────────────────────────────────────────
 
@@ -386,6 +485,9 @@ async def entrypoint(ctx: agents.JobContext):
             tracker.user_done_at = time.time()
             tracker.query_received = True
             log.info("DEBUG: User query ended at %f", tracker.user_done_at)
+        # Reset flag on each final segment so the NEXT turn gets a fresh user_done_at
+        elif msg.is_final:
+            tracker.query_received = False
         asyncio.create_task(gate.on_transcript_token(msg.transcript, msg.is_final))
 
     @session.on("agent_state_changed")
@@ -393,10 +495,13 @@ async def entrypoint(ctx: agents.JobContext):
         barge.set_agent_speaking(ev.new_state == "speaking")
         if ev.new_state == "speaking" and tracker.query_received and not tracker.agent_start_at:
             tracker.agent_start_at = time.time()
-            tracker.log_breakdown(tool_name="Search Tool", room_name=ctx.room.name)
+            # Run log_breakdown in a thread to avoid blocking the event loop
+            asyncio.create_task(
+                asyncio.to_thread(tracker.log_breakdown, "Search Tool", ctx.room.name)
+            )
             tracker.reset()
 
-        if ev.new_state == "listening":
+        if ev.new_state == "listening" and not barge.is_handling_barge_in:
             gate.reset_for_new_turn()
             dispatcher.reset_for_new_turn()
             saga.clear_for_new_turn()
@@ -405,17 +510,13 @@ async def entrypoint(ctx: agents.JobContext):
     def on_user_state_changed(ev: agents.voice.UserStateChangedEvent):
         new_state = getattr(ev, "new_state", None)
         if new_state == "speaking":
-            gate.reset_for_new_turn()
-            dispatcher.reset_for_new_turn()
-            asyncio.create_task(barge.on_user_speech_started())
+            asyncio.create_task(lifecycle.user_speech_started())
         elif new_state == "listening":
-            asyncio.create_task(gate.on_silence_detected(1200))
+            silence_ticker.user_stopped()
 
     @session.on("user_speech_started")
     def on_user_speech_started():
-        gate.reset_for_new_turn()
-        dispatcher.reset_for_new_turn()
-        asyncio.create_task(barge.on_user_speech_started())
+        asyncio.create_task(lifecycle.user_speech_started())
 
     await session.start(room=ctx.room, agent=VoiceAgent())
     print("!!! TRAX AGENT STARTED in ROOM (Listening) !!!")

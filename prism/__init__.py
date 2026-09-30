@@ -86,6 +86,7 @@ class ToolCall:
     committed:     bool  = False
     committed_at:  Optional[float] = None
     result:        Optional[Any]   = None    # the API response dict
+    correction_epoch: Optional[int] = None   # repair epoch when the model emitted the call
 
 
 # ---------------------------------------------------------------------------

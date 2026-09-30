@@ -14,7 +14,7 @@ class MockSession:
     def __init__(self):
         self.interrupted = False
 
-    async def interrupt(self):
+    async def interrupt(self, **kwargs):
         self.interrupted = True
 
 
@@ -66,9 +66,8 @@ class TestPrismIntegration(unittest.IsolatedAsyncioTestCase):
         )
 
     def tearDown(self):
-        for p in (self.temp_log_path, self.temp_log_path + ".audit"):
-            if os.path.exists(p):
-                os.remove(p)
+        if os.path.exists(self.temp_log_path):
+            os.remove(self.temp_log_path)
 
     async def test_clean_speech_turn_execution(self):
         """Clean turn with no repairs confirms at standard VAD silence (300ms)."""
@@ -167,17 +166,14 @@ class TestPrismIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.saga.has_committed_mutations)
         self.assertEqual(self.gate.state, TRPState.LISTENING)
 
-        # Check telemetry and audit for compensation log
-        records = []
-        for path in (self.temp_log_path, self.temp_log_path + ".audit"):
-            if os.path.exists(path):
-                with open(path, "r") as f:
-                    records.extend([json.loads(l) for l in f if l.strip()])
-        # 1 tool call + 1 compensation entry
-        self.assertEqual(len(records), 2)
-        comp_records = [r for r in records if "compensation" in r]
-        self.assertEqual(len(comp_records), 1)
-        self.assertEqual(comp_records[0]["compensation"]["action"], "cancel_flight")
+        # Evaluator telemetry contains tool calls only; compensation is audit-only.
+        with open(self.temp_log_path, "r") as f:
+            records = [json.loads(l) for l in f if l.strip()]
+        self.assertEqual(len(records), 1)
+        self.assertIn("call", records[0])
+        with open(self.temp_log_path + ".audit", "r") as f:
+            audit_records = [json.loads(l) for l in f if l.strip()]
+        self.assertEqual(audit_records[-1]["compensation"]["action"], "cancel_flight")
 
 
 if __name__ == "__main__":

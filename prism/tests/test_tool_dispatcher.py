@@ -121,6 +121,40 @@ class TestToolDispatcher(unittest.IsolatedAsyncioTestCase):
         logged_data = json.loads(lines[0])
         self.assertEqual(logged_data["call"]["args"]["date"], "Oct 7")
 
+    async def test_exact_duplicate_mutation_commits_once(self):
+        """Duplicate model emissions must not repeat a state-changing action."""
+        first = ToolCall(name="add_to_cart", args={"product_id": "P9", "quantity": 2}, effect_class=EffectClass.COMPENSABLE)
+        duplicate = ToolCall(name="add_to_cart", args={"product_id": "P9", "quantity": 2}, effect_class=EffectClass.COMPENSABLE)
+        first_task = asyncio.create_task(self.dispatcher.dispatch(first))
+        await asyncio.sleep(0.01)
+        duplicate_result = json.loads(await self.dispatcher.dispatch(duplicate))
+
+        await self.dispatcher.on_trp_state_change(TRPState.TRP_CONFIRMED)
+        first_result = json.loads(await first_task)
+        self.assertEqual(first_result["status"], "success")
+        self.assertEqual(duplicate_result["status"], "superseded")
+        self.assertEqual(self.mock_db["cart"], [{"product_id": "P9", "qty": 2}])
+        with open(self.temp_log_path, "r") as f:
+            self.assertEqual(len([line for line in f if line.strip()]), 1)
+
+    async def test_reset_allows_identical_call_in_next_turn_and_preserves_history(self):
+        """Deduplication is turn-scoped, not a cross-turn or telemetry filter."""
+        call_args = {"destination": "Rome", "date": "Oct 7"}
+        first_task = asyncio.create_task(self.dispatcher.dispatch(ToolCall(name="search_flights", args=call_args, effect_class=EffectClass.READ_ONLY)))
+        await asyncio.sleep(0.01)
+        await self.dispatcher.on_trp_state_change(TRPState.TRP_CONFIRMED)
+        self.assertEqual(json.loads(await first_task)["status"], "success")
+
+        self.dispatcher.reset_for_new_turn()
+        second_task = asyncio.create_task(self.dispatcher.dispatch(ToolCall(name="search_flights", args=call_args, effect_class=EffectClass.READ_ONLY)))
+        await asyncio.sleep(0.01)
+        await self.dispatcher.on_trp_state_change(TRPState.TRP_CONFIRMED)
+        self.assertEqual(json.loads(await second_task)["status"], "success")
+
+        self.assertEqual([name for name, _ in self.call_history], ["search_flights", "search_flights"])
+        with open(self.temp_log_path, "r") as f:
+            self.assertEqual(len([line for line in f if line.strip()]), 2)
+
     async def test_compensable_mutation_staged_then_committed_with_saga(self):
         """COMPENSABLE mutations stay staged until TRP_CONFIRMED, then commit and register to Saga."""
         call = ToolCall(

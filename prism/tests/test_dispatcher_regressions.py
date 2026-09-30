@@ -195,6 +195,9 @@ class TestEarlyCommitEvidence(DispatcherCase):
         await d.on_trp_state_change(TRPState.TRP_CONFIRMED)
         await d.dispatch(self.call("book_flight", passenger_name="Ana"))
         self.epoch += 1
+        # Retraction is allowed only after the stale mutation is successfully
+        # compensated; a repair alone must not hide a real external action.
+        await self.saga.compensate_all()
         await d.dispatch(self.call("book_flight", passenger_name="Bo"))
         self.assertEqual([c["args"]["passenger_name"] for c in self.logged()], ["Bo"])
 

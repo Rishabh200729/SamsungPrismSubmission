@@ -82,18 +82,31 @@ class BargeInController:
         Arms or disarms the barge-in detector.
         """
         if self._agent_speaking != is_speaking:
-            log.debug("barge_in: agent speaking=%s", is_speaking)
+            log.info(
+                "barge_in: agent speech %s",
+                "started" if is_speaking else "ended",
+            )
         self._agent_speaking = is_speaking
 
-        # When agent stops speaking normally (not barge-in), disarm and clear guard
-        if not is_speaking:
-            self._handling_barge_in = False
+        # ``session.interrupt()`` commonly causes this state transition before
+        # the abort cascade has finished.  The cascade itself owns the guard and
+        # clears it only after gate, dispatcher and saga state are consistent.
+
+    @property
+    def is_handling_barge_in(self) -> bool:
+        """True while the abort cascade owns gate/dispatcher/saga state."""
+        return self._handling_barge_in
+
+    @property
+    def is_agent_speaking(self) -> bool:
+        """True while an agent response is eligible for barge-in."""
+        return self._agent_speaking
 
     # -----------------------------------------------------------------------
     # Barge-in detection
     # -----------------------------------------------------------------------
 
-    async def on_user_speech_started(self) -> None:
+    async def on_user_speech_started(self) -> bool:
         """
         Called when LiveKit's VAD detects user speech onset.
         If the agent is currently speaking, this is a barge-in — execute cascade.
@@ -102,16 +115,22 @@ class BargeInController:
         would allow in the unmodified reference agent.  By calling session.interrupt()
         here we bypass the 3.00s AEC warmup delay seen in the empirical traces.
         """
+        log.info(
+            "barge_in: user speech onset (agent_speaking=%s, handling=%s)",
+            self._agent_speaking,
+            self._handling_barge_in,
+        )
         if not self._agent_speaking:
-            return   # Normal: user speaking during user-turn, not a barge-in
+            return False   # Normal: user speaking during user-turn, not a barge-in
 
         if self._handling_barge_in:
-            return   # Guard: already handling a barge-in this turn
+            return True   # Guard: this onset is already being handled as a barge-in
 
         self._handling_barge_in = True
         log.info("barge_in: DETECTED — user spoke while agent speaking, executing abort cascade")
 
         await self._execute_barge_in()
+        return True
 
     # -----------------------------------------------------------------------
     # Abort cascade
@@ -133,8 +152,10 @@ class BargeInController:
         # This eliminates the AEC warmup lockout — the agent no longer speaks
         # over the user's correction (empirical failure at 05:08:24 in travel_10).
         try:
-            await self._session.interrupt()
-            log.info("barge_in: session.interrupt() called — audio flushed")
+            # force=True bypasses the AEC warmup lockout (default 3.0s window
+            # that silently ignores interruptions right after agent starts speaking).
+            await self._session.interrupt(force=True)
+            log.info("barge_in: session.interrupt(force=True) called — audio flushed")
         except Exception as exc:
             log.warning("barge_in: session.interrupt() failed: %s — continuing cascade", exc)
 

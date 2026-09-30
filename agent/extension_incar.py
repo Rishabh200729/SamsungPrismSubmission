@@ -58,7 +58,7 @@ from typing import Any, Awaitable, Callable, Optional
 from prism import CompensationEntry, EffectClass, ToolCall, TRPState
 from prism.barge_in import BargeInController
 from prism.saga_coordinator import SagaCoordinator
-from prism.tool_dispatcher import EFFECT_MAP, ToolDispatcher, _ABORTED, _SUPERSEDED
+from prism.tool_dispatcher import EFFECT_MAP, ToolDispatcher, _ABORTED, _SUPERSEDED, _DISCARDED
 from prism.trp_gate import _CORRECTION_TERMS_RE, VAD_SILENCE_NORMAL_MS, VAD_SILENCE_REPAIRING_MS, TRPGate
 
 try:  # optional: offline demo and unit tests need no LiveKit / dotenv
@@ -72,6 +72,7 @@ except ImportError:
 try:
     from livekit import agents
     from livekit.agents import Agent, AgentServer, AgentSession, llm
+    from agent.trax_agent import get_realtime_model
 
     _HAS_LIVEKIT = True
 except ImportError:
@@ -308,8 +309,15 @@ class InCarDispatcher(ToolDispatcher):
         saga: SagaCoordinator,
         tool_log_path: str = "/tmp/incar_tool_calls.log",
         room_name: str = "incar",
+        correction_epoch_fn: Optional[Callable[[], int]] = None,
     ) -> None:
-        super().__init__(registry_fn=nav.call, saga=saga, tool_log_path=tool_log_path, room_name=room_name)
+        super().__init__(
+            registry_fn=nav.call,
+            saga=saga,
+            tool_log_path=tool_log_path,
+            room_name=room_name,
+            correction_epoch_fn=correction_epoch_fn,
+        )
         self._nav = nav
         # Awaited before a destination change commits (see InCarBargeIn.on_new_command).
         self.pre_commit_hook: Optional[Callable[[], Awaitable[None]]] = None
@@ -354,15 +362,11 @@ class InCarDispatcher(ToolDispatcher):
         for call in [*self._provisional_cache.values(), *self._staged_queue]:
             fut = call._resolution_future
             if fut is not None and not fut.done():
-                fut.set_result(_ABORTED)
+                fut.set_result(_DISCARDED)
         super().reset_for_new_turn()
 
     def _audit(self, record: dict) -> None:
-        try:
-            with open(self._log_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"room": self._room_name, **record}) + "\n")
-        except OSError as exc:
-            log.error("incar: audit write failed: %s", exc)
+        self._write_audit(record)
 
 
 # ------------------------------------------------------------------------------
@@ -377,6 +381,16 @@ def is_revision(text: str) -> bool:
     """True if the driver is correcting/cancelling (Levelt editing terms + cancel words), not just acknowledging."""
     text = _ACK_RE.sub("", text)
     return bool(_CORRECTION_TERMS_RE.search(text) or _CANCEL_RE.search(text))
+
+
+class LocalAudioBargeDetector:
+    """Calculates RMS audio energy to distinguish silence from speech frames."""
+
+    @staticmethod
+    def rms(samples: Any) -> float:
+        if not samples:
+            return 0.0
+        return math.sqrt(sum(float(x) ** 2 for x in samples) / len(samples))
 
 
 class InCarBargeIn(BargeInController):
@@ -518,11 +532,13 @@ def build_stack(session: Any = None, latency_s: float = 0.15, log_path: Optional
                 room_name: str = "incar") -> Stack:
     nav = NavRegistry(latency_s=latency_s)
     saga = SagaCoordinator()
-    dispatcher = InCarDispatcher(
-        nav, saga, tool_log_path=log_path or os.path.join(tempfile.gettempdir(), "incar_tool_calls.log"),
-        room_name=room_name,
-    )
     gate = TRPGate()
+    dispatcher = InCarDispatcher(
+        nav, saga,
+        tool_log_path=log_path or os.path.join(tempfile.gettempdir(), "incar_tool_calls.log"),
+        room_name=room_name,
+        correction_epoch_fn=lambda: gate.correction_epoch,
+    )
     gate.add_state_listener(dispatcher.on_trp_state_change)
     stack = Stack(nav=nav, saga=saga, dispatcher=dispatcher, gate=gate)
     stack.bind_session(session if session is not None else FakeSession())
@@ -666,10 +682,8 @@ if _HAS_LIVEKIT:
             min_endpointing_delay=0.8,
             max_endpointing_delay=3.0,
             allow_interruptions=True,
-            # Lower AEC warmup to 0.1 s so the agent can be interrupted almost
-            # immediately — the default 3.0 s makes the agent deaf for its entire
-            # speaking turn when responses are short.
-            aec_warmup_duration=0.1,
+            # Lower AEC warmup to 0.0 s so the agent can be interrupted immediately
+            aec_warmup_duration=0.0,
             # 250 ms is enough to detect real speech but not clicks/noise.
             min_interruption_duration=0.25,
         )
@@ -686,13 +700,17 @@ if _HAS_LIVEKIT:
 # Rich terminal dashboard helpers (optional dependency)
 # ---------------------------------------------------------------------------
 try:
-    from rich.console import Console as _Console
+    from rich.console import Console as _RichConsole
     from rich.table import Table as _Table
     from rich.panel import Panel as _Panel
     from rich.text import Text as _Text
     from rich.live import Live as _Live
     from rich import box as _box
     _HAS_RICH = True
+
+    def _Console(**kwargs):
+        kwargs.setdefault("legacy_windows", False)
+        return _RichConsole(**kwargs)
 except ImportError:
     _HAS_RICH = False
 
@@ -991,10 +1009,26 @@ async def run_demo() -> bool:
     return ok_all
 
 
-if __name__ == "__main__":
+def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     if "--demo" in sys.argv:
         sys.exit(0 if asyncio.run(run_demo()) else 1)
     if not _HAS_LIVEKIT:
         sys.exit("livekit-agents is not installed: `pip install livekit-agents livekit-plugins-google` "
                  "or run the offline demo with --demo")
     agents.cli.run_app(server)
+
+
+if __name__ == "__main__":
+    main()
+

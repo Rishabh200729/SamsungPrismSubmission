@@ -40,20 +40,15 @@ log = logging.getLogger("trax.trp_gate")
 # TIER 1 — Strong self-correction signals (Levelt 1983: overt editing phase markers)
 # These indicate the user is actively changing their request → full 900 ms hold.
 _CORRECTION_TERMS_RE = re.compile(
-    r"(?:"
-    r"\bwait\s+no\b|\bno\s+wait\b|\bwait\s+actually\b|\boh\s+(?:wait|no)\b"
-    r"|\bscratch\s+that\b|\bnever\s+mind\b|\bhold\s+on\b"
-    r"|\blet\s+me\s+correct\b|\bi\s+meant\b|\bi\s+mean\b"
-    r"|\binstead\s+of\b|\bchange\s+that\s+to\b"
-    r"|\bactually(?:\s+make\s+that)?\b"
-    r"|(?<!actually\s)\bmake\s+that\b"
-    r"|\bsorry\b|\boops\b|\bcorrection\b"
-    r"|(?:[,\u2014]|\.\.\.)\s*no\s*,"
-    r"|(?:[,\u2014]|\.\.\.)\s*no\b"
-    r"|(?:^|[,;]|\bor\s+)rather\b"
-    r"|\brather\s*,"
-    r"|\bnot\s+[\w]+[,]?\s+(?:but|i\s+mean)\b"
-    r")",
+    r"\b("
+    r"wait|actually|sorry|scratch that|i mean|never mind|hold on"
+    r"|correction|let me correct|i meant"
+    r"|wait no|wait actually|oh wait|oh no"
+    r"|instead of|oops|make that|change that to"
+    r"|no\s*(?:,|—|–|-)"
+    r"|or rather|rather\s*,"
+    r"|not [\w]+[,]? (but|i mean)"
+    r")(?=\b|[,â€”â€“-])",
     re.IGNORECASE,
 )
 
@@ -61,7 +56,31 @@ _CORRECTION_TERMS_RE = re.compile(
 # These indicate thinking, not necessarily a self-correction → shorter 500 ms slow-down.
 # Do NOT enter REPAIRING for these alone; just delay TRP confirmation slightly.
 _FILLER_TERMS_RE = re.compile(
-    r"\b(?:uh|um|er|hmm)\b|,\s*like\b|\blike\s*,|,\s*you\s+know\b",
+    r"\b(uh|um|er|hmm|like|you know)\b",
+    re.IGNORECASE,
+)
+
+# The legacy source above contained an end lookahead shared by every
+# alternative.  That accidentally rejects punctuation-bearing repairs such as
+# "rather,".  Use a precise override: ordinary terms require word boundaries,
+# while the explicit punctuation forms are repairs only when punctuation is
+# actually present.
+_CORRECTION_TERMS_RE = re.compile(
+    r"\b(?:"
+    r"wait|actually|sorry|scratch that|i mean|never mind|hold on"
+    r"|correction|let me correct|i meant"
+    r"|wait no|wait actually|oh wait|oh no"
+    r"|instead of|oops|make that|change that to"
+    r"|or rather|not [\w]+[,]? (?:but|i mean)"
+    r")\b"
+    r"|\b(?:no\s*(?:,|—|–|-)|rather\s*,)",
+    re.IGNORECASE,
+)
+
+# Treat lexical fillers as fillers only in their parenthetical form.  In
+# particular, "I'd like" and "do you know" are normal content, not repairs.
+_FILLER_TERMS_RE = re.compile(
+    r"\b(?:um+|uh+|er+|hmm+)\b|,\s*(?:like|you know)\s*(?=,|$)",
     re.IGNORECASE,
 )
 
@@ -84,6 +103,7 @@ _FINAL_PUNCT_RE = re.compile(r"[.?!]\s*$")
 
 # Silence thresholds (seconds) — Raux & Eskenazi (2009)
 VAD_SILENCE_NORMAL_MS:   int = 300    # confirm TRP at this threshold in LISTENING
+VAD_SILENCE_FILLER_MS:   int = 500    # mild filler-only hold; remains in LISTENING
 VAD_SILENCE_REPAIRING_MS: int = 900   # hold floor until this threshold in REPAIRING
 
 
@@ -112,10 +132,10 @@ class TRPGate:
         self._buffer:             str      = ""          # rolling transcript window
         self._last_editing_at:    float    = 0.0         # monotonic time of last editing term
         self._correction_tier:    int      = 0           # 0=none, 1=strong correction, 2=filler only
+        self._correction_epoch:   int      = 0           # monotonic across normal turn resets
+        self._last_transcript:    str      = ""          # de-duplicates cumulative ASR interims
         self._listeners:          List[Callable[[TRPState], Coroutine]] = []
         self._quiescence_task:    Optional[asyncio.Task] = None
-        self._base_epoch:         int      = 0
-        self._turn_repairs:       int      = 0
 
     # -----------------------------------------------------------------------
     # Public observable
@@ -127,7 +147,8 @@ class TRPGate:
 
     @property
     def correction_epoch(self) -> int:
-        return self._base_epoch + self._turn_repairs
+        """Monotonic count of detected repair events for dispatcher supersession."""
+        return self._correction_epoch
 
     # -----------------------------------------------------------------------
     # Listener registration
@@ -156,18 +177,27 @@ class TRPGate:
         if not token or not token.strip():
             return
 
-        # Append to rolling buffer
-        self._buffer = (self._buffer + " " + token.strip()).strip()
+        transcript = token.strip()
+        # Several ASR providers emit cumulative interim text.  Only the novel suffix
+        # may create a new repair event or duplicate the rolling utterance buffer.
+        if self._last_transcript and transcript.startswith(self._last_transcript):
+            novel = transcript[len(self._last_transcript):].strip()
+        elif transcript == self._last_transcript:
+            novel = ""
+        else:
+            novel = transcript
+        self._last_transcript = transcript
+        if novel:
+            self._buffer = (self._buffer + " " + novel).strip()
 
         # ── TIER 1: Strong self-correction (Levelt 1983) ──────────────────
         # "no wait", "actually", "scratch that", etc. → full REPAIRING state, 900 ms hold
-        corr_matches = list(_CORRECTION_TERMS_RE.finditer(token))
-        if corr_matches:
-            n_repairs = len(corr_matches)
-            if n_repairs > self._turn_repairs:
-                self._turn_repairs = n_repairs
+        if novel and _CORRECTION_TERMS_RE.search(novel):
             self._last_editing_at = time.monotonic()
             self._correction_tier = 1
+            # A chunk may contain multiple lexical markers for one repair
+            # ("no wait, actually ..."); it is one intent-revision event.
+            self._correction_epoch += 1
             if self._state != TRPState.REPAIRING:
                 log.info(
                     "trp_gate: CORRECTION (tier-1) detected in '%s' → REPAIRING (VAD inflated to %dms)",
@@ -179,12 +209,11 @@ class TRPGate:
 
         # ── TIER 2: Filler words (Shriberg 1994) ──────────────────────────
         # "um", "uh", "hmm" → mild delay only, stay in LISTENING (don't enter REPAIRING)
-        if _FILLER_TERMS_RE.search(token) and self._state == TRPState.LISTENING:
+        if novel and _FILLER_TERMS_RE.search(novel) and self._state == TRPState.LISTENING:
             self._last_editing_at = time.monotonic()
             if self._correction_tier < 1:   # don't downgrade an active strong correction
                 self._correction_tier = 2
-            self._schedule_quiescence_check()
-            return   # schedule a quiescence check but don't flip to REPAIRING
+            return   # wait for the 500ms VAD silence hold; don't flip to REPAIRING
 
         # ── TRP confirmation heuristics ───────────────────────────────────
         # Only attempt confirmation if:
@@ -192,13 +221,14 @@ class TRPGate:
         #   2. No editing term fired recently (tier-dependent threshold)
         #   3. Buffer doesn't end with a syntactically incomplete tail
         if is_final and self._state in (TRPState.LISTENING, TRPState.REPAIRING):
-            quiescence_ms = (time.monotonic() - self._last_editing_at) * 1000
-            # Use 800 ms threshold for strong corrections (tier 1), 400 ms for fillers (tier 2)
-            tier_threshold = 800 if self._correction_tier >= 1 else 400
+            quiescence_ms = (time.monotonic() - self._last_editing_at) * 1000 if self._last_editing_at > 0 else float("inf")
+            # Strong repairs need 800 ms of quiet; fillers retain their 500 ms
+            # VAD hold so they cannot be confirmed by a faster final-ASR path.
+            tier_threshold = 800 if self._correction_tier >= 1 else 500 if self._correction_tier == 2 else 0
             if quiescence_ms >= tier_threshold and self._is_syntactically_complete(self._buffer):
                 log.info(
-                    "trp_gate: final token + complete buffer '%s…' (tier=%d, quiescence=%.0fms) → TRP_CONFIRMED",
-                    self._buffer[-40:], self._correction_tier, quiescence_ms,
+                    "trp_gate: final token + complete buffer '%s…' (tier=%d, quiescence=%s) → TRP_CONFIRMED",
+                    self._buffer[-40:], self._correction_tier, f"{quiescence_ms:.0f}ms" if quiescence_ms != float("inf") else "n/a",
                 )
                 await self._transition(TRPState.TRP_CONFIRMED)
             elif self._state == TRPState.REPAIRING:
@@ -206,19 +236,21 @@ class TRPGate:
                 self._schedule_quiescence_check()
 
     def _schedule_quiescence_check(self) -> None:
-        """Atomix §3 bounded commit window: if no new editing terms occur for 900ms, confirm TRP."""
+        """Confirm a complete repair after its tier-specific quiet window."""
         if self._quiescence_task and not self._quiescence_task.done():
             self._quiescence_task.cancel()
 
         async def _check():
-            await asyncio.sleep(VAD_SILENCE_REPAIRING_MS / 1000.0)
-            if self._state == TRPState.REPAIRING:
+            tier = self._correction_tier
+            delay_ms = 800
+            await asyncio.sleep(delay_ms / 1000.0)
+            if tier == 1 and self._state == TRPState.REPAIRING and tier == self._correction_tier:
                 elapsed_ms = (time.monotonic() - self._last_editing_at) * 1000
-                if elapsed_ms >= VAD_SILENCE_REPAIRING_MS - 50:
+                if elapsed_ms >= delay_ms - 50:
                     if self._is_syntactically_complete(self._buffer) or not self._buffer.endswith(("wait", "actually", "uh", "um")):
                         log.info(
-                            "trp_gate: repair quiescence window (%.0fms) elapsed → TRP_CONFIRMED",
-                            elapsed_ms,
+                            "trp_gate: tier-%d quiescence window (%.0fms) elapsed → TRP_CONFIRMED",
+                            tier, elapsed_ms,
                         )
                         await self._transition(TRPState.TRP_CONFIRMED)
 
@@ -243,6 +275,8 @@ class TRPGate:
         threshold = (
             VAD_SILENCE_REPAIRING_MS
             if self._state == TRPState.REPAIRING
+            else VAD_SILENCE_FILLER_MS
+            if self._correction_tier == 2
             else VAD_SILENCE_NORMAL_MS
         )
 
@@ -286,8 +320,7 @@ class TRPGate:
         self._buffer            = ""
         self._last_editing_at   = 0.0
         self._correction_tier   = 0   # reset tier for the new turn
-        self._base_epoch       += self._turn_repairs
-        self._turn_repairs      = 0
+        self._last_transcript   = ""
 
     # -----------------------------------------------------------------------
     # Internal

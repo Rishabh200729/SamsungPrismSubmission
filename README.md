@@ -2,7 +2,9 @@
 
 **Samsung PRISM GenAI Hackathon 3.0 — Theme 05: Interruptible Real-Time Agents**  
 **Target Benchmark**: Full-Duplex-Bench-v3 (`external/FDB-v3/v3/` — Lin et al., arXiv:2604.04847)  
-**Status**: Complete, Empirically Proven on Vanilla FDB-v3 Clone, and Submission-Ready
+**Status**: Transaction behavior is covered by local tests. A clean, full FDB-v3
+voice evaluation and measured latency report are still required before making
+accuracy, latency, or submission-readiness claims.
 
 ---
 
@@ -23,7 +25,7 @@ TRAX resolves this by adapting the transactional tool-commit model of **Atomix**
 > 📖 **Full Theoretical Dossier**: For the comprehensive 17-paper literature review (spanning speech disfluency psycholinguistics, turn-taking, spoken dialogue systems, and distributed transactions), see [RESEARCH.md](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/RESEARCH.md).
 
 ### 2.1 Key FDB-v3 Empirical Findings
-Empirical evaluation on Full-Duplex-Bench-v3 revealed two failure modes across all tested proprietary backends:
+The benchmark motivates two failure modes that the implementation is designed to prevent. The repository does not claim comparative backend measurements until a saved full FDB-v3 run is available:
 1. **The Premature Tool Execution Race**: On self-correction queries (e.g., *"Looking at flights to Miami on October 5th. Oh wait... make that October 7th"*), fixed-threshold acoustic VADs trigger API execution during the brief 200–400ms pause following *"October 5th"*. The agent searches for October 5th, responds over the user, and scores 0.0 on Pass@1.
 2. **AEC Warmup Interruption Lockout**: Default agent frameworks enforce a 3.00s Acoustic Echo Cancellation (AEC) warmup lockout upon entering the speaking state, completely deafening the agent to human barge-in attempts.
 
@@ -94,8 +96,9 @@ SamsungPrismSubmission/
 4. **Barge-In Controller ([prism/barge_in.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/prism/barge_in.py))**:
    * Bypasses AEC warmup lockout delays.
    * Detects user speech onset while agent is speaking, immediately halts playback (`session.interrupt()`), purges pending calls, triggers Saga compensation, and resets state.
-5. **TRAX Agent ([agent/trax_agent.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/agent/trax_agent.py))**:
-   * Full-duplex LiveKit multimodal agent integrating TRAX components with native realtime models (Gemini Live API).
+5. **TRAX Agent ([agent/trax_agent.py](agent/trax_agent.py))**:
+   * Full-duplex LiveKit voice agent integrating TRAX components with native realtime models (Gemini Live API). Compatibility entrypoint `agent/prism_agent.py` is preserved. The in-car extension is voice-only; it does not implement camera or visual grounding.
+
 
 ---
 
@@ -122,24 +125,57 @@ In alignment with Lin et al. (arXiv:2604.04847 Table 1) and the benchmark regist
 
 ---
 
-## 5. Quickstart & Verification
+## 5. Transaction, telemetry, and scope contract
 
-### 5.1 Running the Unit Test Suite
-The entire test suite runs with standard Python `unittest` from the repository root:
+```mermaid
+flowchart LR
+    LK[LiveKit speech events] --> TRP[TRP gate]
+    TRP --> DISP[Tool dispatcher]
+    DISP --> API[Mock API registry]
+    DISP --> SAGA[Saga coordinator]
+    DISP --> LOG[Evaluator JSONL]
+    SAGA --> AUDIT[Paired audit JSONL]
+    LK --> BARGE[Barge-in controller]
+    BARGE --> TRP
+    BARGE --> DISP
+    BARGE --> SAGA
+```
+
+`TRPGate` increments a monotonic correction epoch only for a newly observed Tier-1
+repair marker. Calls with changed arguments are superseded only when they belong
+to an earlier epoch; repeated same-tool calls without a repair remain legitimate.
+Unknown tools fail closed as `COMPENSABLE`; extensions must explicitly call
+`register_effect(name, EffectClass.READ_ONLY)` before they can run speculatively.
+
+Evaluator telemetry is JSONL containing only room, function, args, and start/end
+timestamps. Compensation, late-repair, and retraction decisions are written to
+the paired `.audit` log. A real mutation stays in evaluator telemetry by default,
+even if a later repair causes compensation; narrowly scoped retraction is opt-in
+and occurs only after successful compensation.
+
+The included in-car extension is a voice-only navigation demonstration. PRISM
+does not claim camera input, visual grounding, visual state snapshots, or other
+multimodal perception features.
+
+## 6. Quickstart & Verification
+
+### 6.1 Running the Unit Test Suite
+Run the complete test suite from the repository root:
 
 ```bash
-python -m unittest discover -s prism/tests -p "test_*.py" -v
+pytest -q
 ```
 
-**Results:**
-```text
-Ran 18 tests in 0.137s
+The suite covers correction epochs, cumulative ASR handling, ordinary-language false positives, staged mutation safety, turn resets, barge-in races, evaluator/audit separation, and shared tool-spec wiring. It does not measure model argument-extraction accuracy.
 
-OK
-```
-Covers: Levelt editing terms regex matching, syntactic incompleteness heuristics, dynamic silence thresholding (300ms vs 900ms), LIFO Saga compensation order, fault-tolerant rollback isolation, speculative buffer supersession, abort purge without telemetry leakage, and end-to-end multi-turn flows.
+For the complete FDB-v3 pipeline, the reproduction script installs
+[requirements-benchmark.txt](requirements-benchmark.txt). It targets Python
+3.10 through 3.12. `requirements.lock` remains the smaller local test/runtime
+set.
 
-### 5.2 Launching the TRAX Voice Agent
+Install the tested dependency set on a clean host with `python -m pip install -r requirements.lock`. The pinned set was exercised with Python 3.10; the reproduction script accepts Python 3.10–3.12.
+
+### 6.2 Launching the TRAX Voice Agent and Extension
 To start the LiveKit real-time voice agent worker:
 
 ```bash
@@ -150,26 +186,40 @@ python -m agent.run dev
 python -m agent.run start
 ```
 
-### 5.3 Running End-to-End Evaluation Against Stock FDB-v3
-TRAX evaluates directly against an untouched, vanilla clone of Full-Duplex-Bench:
+Run the in-car extension's deterministic offline demo without credentials:
+
 
 ```bash
-# 1. Exact-Match Argument Evaluation (use_llm=False)
-python scripts/run_fdb_evaluation.py --fdb-path external/FDB-v3/v3 --scenarios travel_10 travel_19
-
-# 2. GPT-4o / Gemini LLM Judge Evaluation (use_llm=True)
-OPENAI_BASE_URL="http://127.0.0.1:8000/v1" python scripts/run_fdb_evaluation.py --fdb-path external/FDB-v3/v3 --scenarios travel_10 travel_19 --use-llm
+python -m agent.extension_incar --demo
 ```
 
-**Empirical Results on Unmodified Benchmark Scenarios:**
-* **`travel_10` (Date Correction with Fillers)**:
-  * Tool Selection F1: **1.0** (Recall=1.0, Precision=1.0)
-  * Argument Accuracy: **1.0**
-  * Pass@1 Status: **PASS (1.0)**
-* **`travel_19` (Double Destination + Date Correction)**:
-  * Tool Selection F1: **1.0** (Recall=1.0, Precision=1.0)
-  * Argument Accuracy: **1.0**
-  * Pass@1 Status: **PASS (1.0)**
+Run its test suite:
+
+```bash
+bash scripts/run_extension_demo.sh test
+```
+
+### 6.3 Running End-to-End Evaluation Against Stock FDB-v3
+Copy `.env.example` to `.env` or `.env.local`, fill in LiveKit, the chosen
+realtime provider, and `OPENAI_API_KEY` for the required official LLM judge.
+The wrapper checks out the pinned FDB revision, creates a run-scoped worktree,
+keeps generated results outside the downloaded benchmark data, captures
+telemetry and latency, runs both stock scorers with the judge, then runs the
+leakage audit:
+
+```bash
+cp .env.example .env
+# Fill the required values in .env, then run a two-recording end-to-end check.
+bash scripts/reproduce_benchmark.sh --smoke
+
+# Run all 100 recordings only after smoke succeeds.
+bash scripts/reproduce_benchmark.sh
+```
+
+`--local-exact-match` is available only for local diagnostics. It does not
+produce a submission score because it does not enable the official LLM judge.
+
+No end-to-end FDB-v3 score is claimed in this repository. Publish metrics only from a saved clean 100-scenario run, including the raw logs, model/provider version, exact commit, package lock, configuration, seed, and latency p50/p95.
 
 ---
 

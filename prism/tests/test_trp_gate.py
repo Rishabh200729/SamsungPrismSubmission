@@ -67,6 +67,30 @@ class TestTRPGate(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.gate.state, TRPState.REPAIRING)
         self.assertIn(TRPState.REPAIRING, self.state_history)
 
+    async def test_filler_stays_listening_and_uses_mild_silence_hold(self):
+        """A filler delays confirmation without being treated as a repair."""
+        await self.gate.on_transcript_token("um", is_final=False)
+        await self.gate.on_transcript_token("book a flight to Paris", is_final=False)
+
+        self.assertEqual(self.gate.state, TRPState.LISTENING)
+        self.assertEqual(self.gate._correction_tier, 2)
+        await self.gate.on_silence_detected(400)
+        self.assertEqual(self.gate.state, TRPState.LISTENING)
+        await asyncio.sleep(0.45)
+        self.assertEqual(self.gate.state, TRPState.LISTENING)
+        await self.gate.on_silence_detected(500)
+        self.assertEqual(self.gate.state, TRPState.TRP_CONFIRMED)
+
+    async def test_strong_correction_cannot_be_downgraded_by_filler(self):
+        """A later filler must not shorten an active correction hold."""
+        await self.gate.on_transcript_token("actually make that Rome", is_final=False)
+        await self.gate.on_transcript_token("um", is_final=False)
+
+        self.assertEqual(self.gate.state, TRPState.REPAIRING)
+        self.assertEqual(self.gate._correction_tier, 1)
+        await self.gate.on_silence_detected(500)
+        self.assertEqual(self.gate.state, TRPState.REPAIRING)
+
     async def test_silence_threshold_distinction(self):
         """In LISTENING, 300ms silence confirms TRP; in REPAIRING, 300ms holds floor."""
         # 1. In LISTENING state with complete buffer
@@ -96,13 +120,17 @@ class TestTRPGate(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.gate.state, TRPState.ABORTED)
         self.assertIn(TRPState.ABORTED, self.state_history)
 
-    def test_reset_for_new_turn(self):
-        """reset_for_new_turn resets buffer and state to LISTENING."""
-        self.gate._state = TRPState.TRP_CONFIRMED
-        self.gate._buffer = "some completed query"
+    async def test_reset_for_new_turn_clears_tier_and_quiescence_task(self):
+        """A new turn cannot inherit repair timing or a pending callback."""
+        await self.gate.on_transcript_token("actually", is_final=False)
+        pending_task = self.gate._quiescence_task
         self.gate.reset_for_new_turn()
         self.assertEqual(self.gate.state, TRPState.LISTENING)
         self.assertEqual(self.gate._buffer, "")
+        self.assertEqual(self.gate._correction_tier, 0)
+        self.assertEqual(self.gate._last_editing_at, 0.0)
+        await asyncio.sleep(0)
+        self.assertTrue(pending_task.cancelled())
 
 
 if __name__ == "__main__":

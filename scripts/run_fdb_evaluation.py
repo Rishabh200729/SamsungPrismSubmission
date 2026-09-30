@@ -34,7 +34,9 @@ def run_evaluation(fdb_path: Path, scenarios: list[str], use_llm: bool = False, 
 
     # Read telemetry tool calls
     calls_by_room = {}
-    tool_log_path = Path("/tmp/agent_tool_calls.log")
+    # The live agent supplies a run-scoped path during reproducible runs.  The
+    # historical location remains the compatibility default for local users.
+    tool_log_path = Path(os.getenv("PRISM_TOOL_LOG_PATH", "/tmp/agent_tool_calls.log"))
     if tool_log_path.exists():
         with open(tool_log_path, "r", encoding="utf-8") as f:
             for line in f:

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from prism import TRPState
-from agent.extension_incar import NavRegistry, SilenceTicker, build_stack, is_revision
+from agent.extension_incar import LocalAudioBargeDetector, NavRegistry, SilenceTicker, build_stack, is_revision
 
 
 async def _wait_for(cond, timeout=3.0):
@@ -75,8 +75,28 @@ class InCarExtensionTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.05)
         self.s.new_turn()                                    # e.g. spurious turn boundary
         out = await asyncio.wait_for(pending, timeout=1.0)   # must not hang
-        self.assertEqual(json.loads(out)["status"], "aborted")
+        self.assertEqual(json.loads(out)["status"], "discarded")
         self.assertEqual(self.s.nav.mutations, [])
+
+    async def test_distinct_read_only_calls_without_repair_both_commit(self):
+        first = self.s.model_call("find_nearby", category="gas station")
+        second = self.s.model_call("find_nearby", category="hospital")
+        await self.s.gate.on_transcript_token("Find nearby places.", True)
+        first_out, second_out = map(json.loads, await asyncio.gather(first, second))
+        self.assertEqual(first_out["category"], "gas_station")
+        self.assertEqual(second_out["category"], "hospital")
+
+    async def test_compensation_uses_paired_audit_log(self):
+        await self._two_committed_routes()
+        await self.s.barge.on_interrupting_speech("Wait, no, go back")
+        with open(self.s.dispatcher._log_path, encoding="utf-8") as evaluator:
+            records = [json.loads(line) for line in evaluator if line.strip()]
+        self.assertTrue(records)
+        self.assertTrue(all("call" in record for record in records))
+        with open(self.s.dispatcher._audit_path, encoding="utf-8") as audit:
+            audit_records = [json.loads(line) for line in audit if line.strip()]
+        self.assertTrue(any(record.get("compensation", {}).get("action") == "restore_destination"
+                            for record in audit_records))
 
     # -- intent-aware barge-in -------------------------------------------------
 
@@ -145,6 +165,10 @@ class InCarExtensionTests(unittest.IsolatedAsyncioTestCase):
         out = NavRegistry(latency_s=0).call("find_nearby", category="pharmacy")
         self.assertEqual(out["status"], "success")
         self.assertEqual(len(out["results"]), 3)
+
+    def test_local_audio_detector_rms_distinguishes_silence_from_voice(self):
+        self.assertEqual(LocalAudioBargeDetector.rms([0, 0, 0]), 0.0)
+        self.assertEqual(LocalAudioBargeDetector.rms([-900, 900]), 900.0)
 
     # -- silence ticker ----------------------------------------------------------
 
