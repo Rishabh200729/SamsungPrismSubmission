@@ -1,231 +1,195 @@
-# TRAX: Voice-Native Interruptible Real-Time Agent Architecture
+# TRAX: Transactional Real-time Agent eXecution
 
-**Samsung PRISM GenAI Hackathon 3.0 — Theme 05: Interruptible Real-Time Agents**  
-**Target Benchmark**: Full-Duplex-Bench-v3 (`external/FDB-v3/v3/` — Lin et al., arXiv:2604.04847)  
-**Status**: Transaction behavior is covered by local tests. A clean, full FDB-v3
-voice evaluation and measured latency report are still required before making
-accuracy, latency, or submission-readiness claims.
+**Full Title:** TRAX: Voice-Native Interruptible Real-Time Agent Architecture
 
----
+**Context / Program:** Samsung PRISM GenAI Hackathon 3.0 — Theme 05: Interruptible Real-Time Agents
 
-## 1. Executive Overview
-
-Full-duplex voice agents fail catastrophically when human speakers hesitate, self-correct, or barge in mid-utterance. On the official Full-Duplex-Bench-v3 benchmark (100 human-recorded audio scenarios, 12 mock APIs across 4 domains), state-of-the-art native voice agents (such as Gemini Live and GPT-Realtime) experience an immediate collapse: **Pass@1 plummets from 1.000 on clean speech down to 0.000–0.588 on disfluent and self-correction turns**.
-
-The root cause is a fundamental impedance mismatch: **acoustic Voice Activity Detectors (VADs) eagerly trigger tool executions before the human speaker has reached pragmatic closure**, permanently committing stale parameters (*reparanda*) to enterprise backends.
-
-TRAX resolves this by adapting the transactional tool-commit model of **Atomix** (*"Atomix: Timely, Transactional Tool Use for Reliable Agentic Workflows"*, Adepu et al., arXiv:2602.14849) to the voice/turn-taking domain:
-* **The Atomix Base**: We utilize Atomix's effect taxonomy (`READ_ONLY`, `COMPENSABLE`, `IRREVERSIBLE`), speculative execution isolation, and Saga-style compensation (Garcia-Molina & Salem 1987).
-* **Our Core Voice Contribution**: In Atomix, the safety predicate is computational (*"has prior orchestrator work on this resource finished?"* — an epoch/frontier signal). In TRAX, we replace the computational frontier with a **disfluency-aware Transition Relevance Place (TRP) gate** derived from streaming linguistic analysis of real-time human speech (Levelt 1983; Raux & Eskenazi 2009). Tool commit is gated not on computational job completion, but on whether the human speaker has completed their repair (*reparans*) and reached a syntactically and pragmatically complete turn boundary.
+**Core Focus:** Disfluency-aware turn gating (TRPGate) and speculative, compensable
+two-phase tool execution for full-duplex streaming voice assistants.
 
 ---
 
-## 2. Research & Design Rationale
+## 1. What this is
 
-> 📖 **Full Theoretical Dossier**: For the comprehensive 17-paper literature review (spanning speech disfluency psycholinguistics, turn-taking, spoken dialogue systems, and distributed transactions), see [RESEARCH.md](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/RESEARCH.md).
+Standard voice agents run tool calls the instant a VAD detects a pause. If the user was
+mid-correction ("book a flight to Miami... no wait, Denver"), that pause-triggered call
+already fired on the stale value — and a naive agent has no way to tell "the user is done
+talking" from "the user is about to fix what they just said."
 
-### 2.1 Key FDB-v3 Empirical Findings
-The benchmark motivates two failure modes that the implementation is designed to prevent. The repository does not claim comparative backend measurements until a saved full FDB-v3 run is available:
-1. **The Premature Tool Execution Race**: On self-correction queries (e.g., *"Looking at flights to Miami on October 5th. Oh wait... make that October 7th"*), fixed-threshold acoustic VADs trigger API execution during the brief 200–400ms pause following *"October 5th"*. The agent searches for October 5th, responds over the user, and scores 0.0 on Pass@1.
-2. **AEC Warmup Interruption Lockout**: Default agent frameworks enforce a 3.00s Acoustic Echo Cancellation (AEC) warmup lockout upon entering the speaking state, completely deafening the agent to human barge-in attempts.
+TRAX gates tool execution on a **linguistic** repair signal instead of a purely acoustic
+one, and wraps every tool call in a transactional model so a stale or superseded call can be
+dropped or rolled back cleanly, never executed twice, and never lost when it was legitimate.
+It adapts ideas from Atomix's effect taxonomy (`READ_ONLY` / `COMPENSABLE` / `IRREVERSIBLE`)
+and Saga-pattern compensation (Garcia-Molina & Salem, 1987) to real-time voice turn-taking
+(Levelt, 1983's model of self-repair). Full literature review: [RESEARCH.md](RESEARCH.md).
 
-### 2.2 Atomix vs. TRAX: Conceptual Alignment
-| Dimension | Atomix (arXiv:2602.14849) | TRAX (Our Architecture) |
-|:---|:---|:---|
-| **Domain** | Text-based asynchronous agentic workflows | Full-duplex real-time voice agents |
-| **Commit Safety Predicate** | Computational frontier (prior node completion) | Linguistic TRP Gate (Levelt repair completion) |
-| **Speculative Execution** | Bufferable tool execution during planning | Isolated background API dispatch during ongoing user speech |
-| **Self-Correction Handling** | Dependency graph invalidation | In-memory cache supersession (stale call discarded with zero telemetry pollution) |
-| **Abort / Barge-In** | Workflow cancellation | Audio output flush (`session.interrupt()`) + LIFO Saga rollback |
-| **State Compensation** | Saga pattern (Garcia-Molina & Salem 1987) | Strict LIFO reverse-dependency compensation ledger |
+## 2. Architecture
 
-### 2.3 Architectural Decision Records (ADRs) Summary
-* **ADR 01: Scrapping the Legacy 4-Module Prototype**: Scrapped the initial prototype (regex/SVM/text-event-bus) because turn-taking cannot be handled post-ASR; it must be native to the full-duplex WebRTC audio session.
-* **ADR 02: Streaming Linguistic TRP Gate**: Implemented Levelt (1983) editing marker detection with dynamic VAD silence inflation (**300ms** in `LISTENING` → **900ms** in `REPAIRING`).
-* **ADR 03: Two-Phase Transactional Tooling (TPTT)**: Speculatively executes `READ_ONLY` queries in an isolated cache; stages `COMPENSABLE` mutations until turn confirmation; supersedes stale queries on self-correction.
-* **ADR 04: Zero-Lockout Barge-In & Saga Rollback**: Bypasses the 3-second AEC lockout, instantly truncates playback on user speech onset, purges uncommitted buffers, and executes reverse-order Saga compensations.
-
----
-
-## 3. System Architecture & Module Breakdown
-
-The TRAX architecture is implemented in the top-level `prism/` package, and exposed through a self-contained agent in `agent/`:
-
-```
-SamsungPrismSubmission/
-├── RESEARCH.md                              # Comprehensive 17-paper research dossier & ADRs
-├── README.md                                # Authoritative documentation & user guide
-├── prism/                                   # Core TRAX transaction & gating layer
-│   ├── __init__.py                          # Data types: TRPState, EffectClass, ToolCall, CompensationEntry
-│   ├── trp_gate.py                          # Disfluency-aware TRP gate & dynamic VAD inflation
-│   ├── tool_dispatcher.py                   # Two-Phase Transactional Tooling (TPTT)
-│   ├── saga_coordinator.py                  # Garcia-Molina Saga rollback coordinator
-│   ├── barge_in.py                          # Zero-lockout audio flush & abort cascade
-│   └── tests/                               # 18 unit and integration tests (100% pass)
-│       ├── test_trp_gate.py
-│       ├── test_tool_dispatcher.py
-│       ├── test_saga_coordinator.py
-│       ├── test_barge_in.py
-│       └── test_integration.py
-├── agent/                                   # Real-time Voice Agent & CLI launcher
-│   ├── __init__.py                          # Public agent package exports
-│   ├── trax_agent.py                       # LiveKit multimodal agent integrating TRAX
-│   └── run.py                               # CLI entrypoint (python -m agent.run dev)
-├── scripts/                                 # Evaluation runners & benchmark utilities
-│   ├── run_fdb_evaluation.py                # Automated evaluation harness for FDB-v3
-│   ├── gemini_judge_proxy.py                # Local OpenAI-to-Gemini judge proxy for scoring
-│   └── benchmarks/                          # Research benchmark audit files
-└── external/
-    └── FDB-v3/                              # Untouched upstream benchmark clone (in .gitignore)
+```mermaid
+flowchart TB
+    U["Driver / user speech"] --> ASR["Streaming ASR\n(LiveKit realtime model)"]
+    ASR -->|transcript tokens| GATE["TRPGate\nprism/trp_gate.py"]
+    GATE -->|"LISTENING: 300ms silence\nREPAIRING: 900ms silence"| VAD["Turn-taking / floor hold"]
+    ASR -->|final transcript| MODEL["LLM tool-calling\n(Gemini 2.5 Live / GPT-Realtime)"]
+    MODEL -->|tool_call| DISP["ToolDispatcher\nprism/tool_dispatcher.py"]
+    GATE -->|correction_epoch| DISP
+    DISP -->|"READ_ONLY: speculative,\nsuperseded on real repair only"| APIS["Tool APIs"]
+    DISP -->|"COMPENSABLE: staged until\nTRP_CONFIRMED"| APIS
+    DISP -->|commit| SAGA["SagaCoordinator\nprism/saga_coordinator.py"]
+    BARGE["BargeInController\nprism/barge_in.py"] -->|user barge-in| SAGA
+    BARGE -->|flush audio + abort| MODEL
+    SAGA -->|LIFO compensation| APIS
 ```
 
-### Module Responsibilities:
-1. **TRP Gate ([prism/trp_gate.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/prism/trp_gate.py))**:
-   * Scans streaming ASR tokens for Levelt editing markers (`wait`, `actually`, `no`, `sorry`, `scratch that`, `i mean`, `rather`).
-   * On marker detection, transitions from `LISTENING` to `REPAIRING`, dynamically inflating VAD silence threshold from **300ms to 900ms** to hold the floor during repair formulation.
-   * Evaluates syntactic completeness to reject dangling prepositions (`on`, `for`, `to`, `with`, `and`).
-2. **Tool Dispatcher ([prism/tool_dispatcher.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/prism/tool_dispatcher.py))**:
-   * Intercepts model tool calls and gates them by effect class.
-   * `READ_ONLY`: Dispatched speculatively to mock APIs; results held in an isolated cache. If a self-correction occurs, the earlier call is superseded with zero telemetry pollution.
-   * `COMPENSABLE`: Staged in memory until `TRP_CONFIRMED`; commits only upon turn closure and registers rollback closures with the Saga Coordinator.
-   * `IRREVERSIBLE`: Strictly gated; never speculatively dispatched.
-3. **Saga Coordinator ([prism/saga_coordinator.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/prism/saga_coordinator.py))**:
-   * Append-only ledger of committed mutations with pre-baked compensation closures.
-   * Executes rollbacks in **strict LIFO (reverse-dependency) order**.
-   * Enforces fault isolation so one failing rollback does not abort remaining compensations.
-4. **Barge-In Controller ([prism/barge_in.py](file:///Users/krishnasalgotra/PRISM/SamsungPrismSubmission/prism/barge_in.py))**:
-   * Bypasses AEC warmup lockout delays.
-   * Detects user speech onset while agent is speaking, immediately halts playback (`session.interrupt()`), purges pending calls, triggers Saga compensation, and resets state.
-5. **TRAX Agent ([agent/trax_agent.py](agent/trax_agent.py))**:
-   * Full-duplex LiveKit voice agent integrating TRAX components with native realtime models (Gemini Live API). Compatibility entrypoint `agent/prism_agent.py` is preserved. The in-car extension is voice-only; it does not implement camera or visual grounding.
+**Turn lifecycle** — what happens between one user utterance and the next:
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant Gate as TRPGate
+    participant Model as LLM
+    participant Disp as ToolDispatcher
+    participant Saga as SagaCoordinator
 
----
+    User->>Gate: "book a flight to Miami"
+    Gate->>Gate: silence 300ms -> LISTENING confirms TRP
+    Model->>Disp: tool_call(search_flights, Miami)
+    Disp->>Disp: READ_ONLY -> run speculatively
+    User->>Gate: "...no wait, Denver"
+    Gate->>Gate: repair marker -> REPAIRING, epoch += 1, hold 900ms
+    Model->>Disp: tool_call(search_flights, Denver)
+    Disp->>Disp: same tool + repair since last issue -> supersede Miami call
+    Gate->>Gate: silence 900ms -> TRP_CONFIRMED
+    Disp->>Saga: commit(Denver result)
+```
 
-## 4. Verified 12 Mock API Classification
+**Core package (`prism/`):**
 
-In alignment with Lin et al. (arXiv:2604.04847 Table 1) and the benchmark registry in `mock_apis.py`, all 12 tools are classified into formal transaction effect classes:
+| Module | Role |
+|---|---|
+| `prism/trp_gate.py` | Detects genuine self-correction (Levelt editing markers) at clause boundaries, not on bare words like "no"/"rather" anywhere in a sentence. Holds the floor with a dynamic silence threshold during a repair. Exposes `correction_epoch`, a monotonic count of real repairs. |
+| `prism/tool_dispatcher.py` | Two-phase transactional tool execution. `READ_ONLY` calls run speculatively; `COMPENSABLE` calls stage until the turn is confirmed; a same-tool call is only superseded when a real repair happened in between (via `correction_epoch_fn`) — so two legitimate calls to the same tool (e.g. tracking two different orders) both survive instead of the second one silently discarding the first. |
+| `prism/saga_coordinator.py` | LIFO compensation ledger for committed mutations (Saga pattern) — a barge-in after commit rolls back cleanly instead of leaving stale state. |
+| `prism/barge_in.py` | Detects the user talking over the agent, flushes output audio, triggers rollback via the Saga coordinator. |
 
-| Tool Name | Domain | Effect Class | Rationale / Rollback Action |
-|:---|:---|:---:|:---|
-| `search_flights` | Travel | `READ_ONLY` | Query only; speculative execution permitted |
-| `get_exchange_rate` | Finance | `READ_ONLY` | Query only; idempotent rate calculation |
-| `get_card_benefits` | Finance | `READ_ONLY` | Query only; static benefits fetch |
-| `search_apartments` | Housing | `READ_ONLY` | Query only; filtered apartment search |
-| `calculate_commute` | Housing | `READ_ONLY` | Query only; commute route calculation |
-| `search_products` | E-Commerce | `READ_ONLY` | Query only; catalog lookup |
-| `track_order` | E-Commerce | `READ_ONLY` | Query only; shipment tracking query |
-| `book_flight` | Travel | `COMPENSABLE` | Mutates booking ledger; rollback: cancel reservation |
-| `modify_autopay` | Finance | `COMPENSABLE` | Mutates billing state; rollback: revert to previous account |
-| `update_search_filter` | Housing | `COMPENSABLE` | Mutates session filter; rollback: restore original filter |
-| `add_to_cart` | E-Commerce | `COMPENSABLE` | Mutates shopping cart; rollback: remove product |
-| `update_identity_doc` | Travel / Identity | `IRREVERSIBLE` | Government document mutation; strictly gated until confirmed |
+**Live agent entrypoint:** `agent/trax_agent.py`, launched via `python -m agent.run dev` /
+`start` (see `agent/run.py`). `agent/prism_agent.py` is an earlier implementation kept only
+because `prism/tests/test_turn_lifecycle.py` still imports three helper classes from it
+(`LatencyTracker`, `SilenceTicker`, `TurnLifecycleCoordinator`) — if you're reading the agent
+code for the first time, read `trax_agent.py`.
 
-*Note*: Canonical alias resolution in `_CanonicalEffectMap` transparently supports both benchmark code names (`book_flight`) and paper conceptual names (`book_ticket`) in memory without modifying upstream files.
+**Shared prompt/tool source:** `agent/tool_specs.py` — the single place the system prompt and
+tool schemas are defined, so nothing else in the repo can silently drift from it.
 
----
+## 3. Extension use case — clearly marked
 
-## 5. Transaction, telemetry, and scope contract
+**`agent/extension_incar.py`** — an in-car voice navigation agent, entirely outside the
+travel/finance/housing/e-commerce tool set above. A driver changes their destination
+mid-route ("take me to the city mall... no wait, actually the airport") and the same TRAX
+stack protects a live, stateful vehicle action:
+
+- `TRPGate` holds the floor while the driver corrects themselves.
+- `ToolDispatcher` (via a small `InCarDispatcher` subclass) never lets the stale destination
+  reach the vehicle; last-writer-wins on `update_destination`.
+- `SagaCoordinator` remembers the previous route so a barge-in can roll it back.
+- `BargeInController` (via `InCarBargeIn`) rolls back only on a real correction, not a
+  backchannel acknowledgement ("okay, thanks").
+
+Nothing under `prism/` is modified to support this — it's the same transactional core, reused
+in a second domain, which is the point: the architecture generalizes.
 
 ```mermaid
 flowchart LR
-    LK[LiveKit speech events] --> TRP[TRP gate]
-    TRP --> DISP[Tool dispatcher]
-    DISP --> API[Mock API registry]
-    DISP --> SAGA[Saga coordinator]
-    DISP --> LOG[Evaluator JSONL]
-    SAGA --> AUDIT[Paired audit JSONL]
-    LK --> BARGE[Barge-in controller]
-    BARGE --> TRP
-    BARGE --> DISP
-    BARGE --> SAGA
+    A["'take me to city mall'"] --> B[update_destination: city mall]
+    C["'...no wait, airport'"] -->|repair detected| D["city mall SUPERSEDED\n(never reaches vehicle)"]
+    D --> E[update_destination: airport — COMMITTED]
+    E --> F["barge-in: 'actually go back'"]
+    F --> G["Saga rollback -> downtown hotel"]
 ```
 
-`TRPGate` increments a monotonic correction epoch only for a newly observed Tier-1
-repair marker. Calls with changed arguments are superseded only when they belong
-to an earlier epoch; repeated same-tool calls without a repair remain legitimate.
-Unknown tools fail closed as `COMPENSABLE`; extensions must explicitly call
-`register_effect(name, EffectClass.READ_ONLY)` before they can run speculatively.
+Run it (no API keys needed for the offline path):
+```bash
+python -m agent.extension_incar --demo   # deterministic offline walkthrough
+python -m unittest prism.tests.test_extension_incar -v
+python -m agent.extension_incar dev      # live LiveKit voice agent (needs .env)
+```
+Verified for this document: **the offline demo runs end-to-end, all 8 verification checks
+pass** (superseded stale call, committed correction, both barge-ins flushed audio, rollback
+to the correct prior destination, post-barge command applied, acknowledgement barge-in
+correctly did *not* roll back, exact mutation history, and a read-only query's stale call
+correctly superseded).
 
-Evaluator telemetry is JSONL containing only room, function, args, and start/end
-timestamps. Compensation, late-repair, and retraction decisions are written to
-the paired `.audit` log. A real mutation stays in evaluator telemetry by default,
-even if a later repair causes compensation; narrowly scoped retraction is opt-in
-and occurs only after successful compensation.
+## 4. Tool transaction classes
 
-The included in-car extension is a voice-only navigation demonstration. PRISM
-does not claim camera input, visual grounding, visual state snapshots, or other
-multimodal perception features.
+Verified against the live `EFFECT_MAP` in `prism/tool_dispatcher.py`, not just read from
+source:
 
-## 6. Quickstart & Verification
+```mermaid
+pie showData
+    title 12 tools by transaction class
+    "READ_ONLY — speculative" : 7
+    "COMPENSABLE — staged, rollback on commit" : 4
+    "IRREVERSIBLE — never speculative" : 1
+```
 
-### 6.1 Running the Unit Test Suite
-Run the complete test suite from the repository root:
+| Tool | Class | Rollback on Saga compensation |
+|---|:---:|---|
+| `search_flights`, `get_exchange_rate`, `get_card_benefits`, `search_apartments`, `calculate_commute`, `search_products`, `track_order` | `READ_ONLY` | n/a — no side effect |
+| `book_flight` | `COMPENSABLE` | Cancel reservation |
+| `modify_autopay` | `COMPENSABLE` | Revert funding source |
+| `update_search_filter` | `COMPENSABLE` | Restore prior filter |
+| `add_to_cart` | `COMPENSABLE` | Remove item |
+| `update_identity_doc` | `IRREVERSIBLE` | None — government document mutation, never run speculatively |
+
+Any tool not in this list fails **closed**: treated as `COMPENSABLE` (staged, not run
+speculatively) rather than assumed safe — see `UNKNOWN_DEFAULT` in `prism/tool_dispatcher.py`.
+
+## 5. Setup and run steps
+
+**Requirements:** Python 3.10+, a free [LiveKit Cloud](https://cloud.livekit.io) account, and
+either a Google API key (Gemini, default provider) or an OpenAI API key (GPT-Realtime).
 
 ```bash
-pytest -q
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
 ```
 
-The suite covers correction epochs, cumulative ASR handling, ordinary-language false positives, staged mutation safety, turn resets, barge-in races, evaluator/audit separation, and shared tool-spec wiring. It does not measure model argument-extraction accuracy.
+**Environment variables** — create a `.env` file at the repo root (never commit it):
 
-For the complete FDB-v3 pipeline, the reproduction script installs
-[requirements-benchmark.txt](requirements-benchmark.txt). It targets Python
-3.10 through 3.12. `requirements.lock` remains the smaller local test/runtime
-set.
+| Variable | Required when | Read by |
+|---|---|---|
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Always, to run any live agent | `agent/trax_agent.py` |
+| `LK_PROVIDER` | Optional, default `gemini2_5` | `agent/trax_agent.py` (`gemini2_5` or `gpt_realtime`) |
+| `GOOGLE_API_KEY` | If `LK_PROVIDER=gemini2_5` | `agent/trax_agent.py` |
+| `OPENAI_API_KEY` | If `LK_PROVIDER=gpt_realtime` | `agent/trax_agent.py` |
 
-Install the tested dependency set on a clean host with `python -m pip install -r requirements.lock`. The pinned set was exercised with Python 3.10; the reproduction script accepts Python 3.10–3.12.
+> No `.env.example` is checked into this repo, and `.gitignore`'s `.env.*` line would
+> silently exclude one if added as-is (needs a `!.env.example` exception line after it).
+> Build your local `.env` from the table above.
 
-### 6.2 Launching the TRAX Voice Agent and Extension
-To start the LiveKit real-time voice agent worker:
-
+**Run the unit tests:**
 ```bash
-# Ensure LiveKit Cloud and Gemini API credentials are set in environment
-python -m agent.run dev
-
-# Or for production mode:
-python -m agent.run start
+python -m unittest discover -s prism/tests -p "test_*.py" -v
 ```
 
-Run the in-car extension's deterministic offline demo without credentials:
-
-
+**Run the live agent:**
 ```bash
-python -m agent.extension_incar --demo
+python -m agent.run dev     # or: start
 ```
 
-Run its test suite:
-
+**Compliance check** (run after any prompt edit — checks tool descriptions don't contain
+verbatim answers to public benchmark scenarios):
 ```bash
-bash scripts/run_extension_demo.sh test
+python scripts/audit_benchmark_leakage.py --files agent/trax_agent.py agent/tool_specs.py agent/extension_incar.py
 ```
 
-### 6.3 Running End-to-End Evaluation Against Stock FDB-v3
-Copy `.env.example` to `.env` or `.env.local`, fill in LiveKit, the chosen
-realtime provider, and `OPENAI_API_KEY` for the required official LLM judge.
-The wrapper checks out the pinned FDB revision, creates a run-scoped worktree,
-keeps generated results outside the downloaded benchmark data, captures
-telemetry and latency, runs both stock scorers with the judge, then runs the
-leakage audit:
+## 6. Anti-overfitting
 
-```bash
-cp .env.example .env
-# Fill the required values in .env, then run a two-recording end-to-end check.
-bash scripts/reproduce_benchmark.sh --smoke
-
-# Run all 100 recordings only after smoke succeeds.
-bash scripts/reproduce_benchmark.sh
-```
-
-`--local-exact-match` is available only for local diagnostics. It does not
-produce a submission score because it does not enable the official LLM judge.
-
-No end-to-end FDB-v3 score is claimed in this repository. Publish metrics only from a saved clean 100-scenario run, including the raw logs, model/provider version, exact commit, package lock, configuration, seed, and latency p50/p95.
-
----
-
-## 6. Anti-Overfitting Defense & Scientific Integrity
-
-1. **Zero Upstream Modifications**: The external benchmark directory (`external/FDB-v3/`) remains 100% factory-clean git stock. Zero patches or in-place edits are required.
-2. **Zero Hardcoded Scenarios**: The codebase contains no scenario name checks, regex matching against benchmark input phrases, or scenario-specific routing rules.
-3. **Universal Psycholinguistic Lexicon**: The speech repair lexicon is derived from Willem Levelt's foundational (1983) psycholinguistic model of human speech production, not fitted to benchmark audio files.
-4. **Rigorous Distributed Systems Formalism**: State mutations and rollbacks follow proven distributed transactions (Two-Phase Commit, Saga Pattern) rather than fragile prompt engineering.
+- The repair lexicon (`prism/trp_gate.py`) is derived from Levelt's (1983) general
+  psycholinguistic model of speech repair, not fitted to any specific test data.
+- `scripts/audit_benchmark_leakage.py` scans tool descriptions and prompts for verbatim
+  overlap with public benchmark answers, so illustrative examples can't accidentally become
+  answer keys.
+- The transactional core (`prism/`) has no domain-specific logic in it at all — §3
+  demonstrates this directly by reusing it, unmodified, in a second domain (in-car
+  navigation) with a different tool set entirely.
