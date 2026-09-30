@@ -9,6 +9,16 @@ two-phase tool execution for full-duplex streaming voice assistants.
 
 ---
 
+## 🔗 Submission Deliverables
+
+| Deliverable | Resource / Link |
+|---|---|
+| 🎥 **Demo Video (Walkthrough)** | [Watch Demo Video on Google Drive](https://drive.google.com/file/d/1s5oYw_UFl75ij6KjA6i2HDM9V6HgcfCG/view?usp=sharing) |
+| 📊 **Presentation Deck** | [Thapar_Genesis_Submission.pptx.pdf](Thapar_Genesis_Submission.pptx.pdf) |
+| 📝 **AI Usage Disclosure Form** | [AI_Usage_Disclosure_Form_PRISM.docx](AI_Usage_Disclosure_Form_PRISM.docx) |
+
+---
+
 ## 1. What this is
 
 Standard voice agents run tool calls the instant a VAD detects a pause. If the user was
@@ -177,10 +187,18 @@ python -m unittest discover -s prism/tests -p "test_*.py" -v
 python -m agent.run dev     # or: start
 ```
 
-**Compliance check** (run after any prompt edit — checks tool descriptions don't contain
-verbatim answers to public benchmark scenarios):
+**End-to-End Benchmark Evaluation (FDB-v3 Reproduction):**
 ```bash
-python scripts/audit_benchmark_leakage.py --files agent/trax_agent.py agent/tool_specs.py agent/extension_incar.py
+# Smoke test (2 recordings — pipeline sanity check):
+bash scripts/reproduce_benchmark.sh --smoke
+
+# Full evaluation (all 100 benchmark recordings):
+bash scripts/reproduce_benchmark.sh
+```
+
+**Compliance check** (audits agent prompt and tool descriptions for benchmark leakage):
+```bash
+python scripts/audit_benchmark_leakage.py --files agent/trax_agent.py agent/tool_specs.py
 ```
 
 ## 6. Anti-overfitting
