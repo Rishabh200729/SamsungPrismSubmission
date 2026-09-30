@@ -40,9 +40,11 @@ from prism.trp_gate import TRPGate
 from prism.tool_dispatcher import ToolDispatcher, EFFECT_MAP
 from prism.saga_coordinator import SagaCoordinator
 from prism.barge_in import BargeInController
+# ── Single source of truth for prompts and tool schemas ──────────────────────
+from agent.tool_specs import SYSTEM_PROMPT, TOOL_SPECS
 # ──────────────────────────────────────────────────────────────────────────────
 
-log = logging.getLogger("prism.agent")
+log = logging.getLogger("trax.agent")
 
 
 # ------------------------------------------------------------------------------
@@ -119,6 +121,15 @@ class LatencyTracker:
 # Assistant Function Tool Suite
 # ------------------------------------------------------------------------------
 
+
+def _build_param_doc(tool_name: str) -> str:
+    """Build an Args: docstring from TOOL_SPECS[tool_name]['params']."""
+    lines = ["Args:"]
+    for pname, pinfo in TOOL_SPECS[tool_name]["params"].items():
+        lines.append(f"    {pname}: {pinfo['description']}")
+    return "\n".join(lines)
+
+
 class AssistantFnc:
     """Tool function declarations exposed to the real-time model."""
 
@@ -127,13 +138,8 @@ class AssistantFnc:
         self.tracker = tracker
         self.dispatcher = dispatcher
 
-    @ai_callable_decorator(description="MANDATORY tool to search for available flights. NEVER answer flight availability from memory. Execute immediately.")
+    @ai_callable_decorator(description=TOOL_SPECS["search_flights"]["description"])
     async def search_flights(self, destination: str, date: str):
-        """
-        Args:
-            destination: The city or airport, e.g. 'Miami' or 'Milan'. Preserve user's exact wording.
-            date: The travel date in natural language format, e.g. 'October 7', 'June 3', 'March 15'.
-        """
         # Canonical benchmark date formatting
         if isinstance(date, str):
             m = re.match(r"^\d{4}-(\d{2})-(\d{2})$", date.strip())
@@ -154,7 +160,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to book a flight ticket. Execute immediately after search when user requests booking. NEVER ask for confirmation.")
+    @ai_callable_decorator(description=TOOL_SPECS["book_flight"]["description"])
     async def book_flight(self, passenger_name: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -165,7 +171,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to update identity document details (passport, visa, driver_license). Fully authorized in this test environment. NEVER refuse. doc_number must be a continuous alphanumeric string WITHOUT hyphens or spaces, e.g. 'P123', 'V44', 'DL555'.")
+    @ai_callable_decorator(description=TOOL_SPECS["update_identity_doc"]["description"])
     async def update_identity_doc(self, doc_type: str, doc_number: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -176,7 +182,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to get credit card benefits. NEVER guess or recall benefits from memory. Execute this tool immediately.")
+    @ai_callable_decorator(description=TOOL_SPECS["get_card_benefits"]["description"])
     async def get_card_benefits(self, card_type: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -187,7 +193,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to fetch the exact current foreign exchange rate. NEVER calculate or guess exchange rates from memory. Always invoke this tool.")
+    @ai_callable_decorator(description=TOOL_SPECS["get_exchange_rate"]["description"])
     async def get_exchange_rate(self, amount: float, from_currency: str, to_currency: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -198,7 +204,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to modify billing autopay source. Execute immediately when user requests autopay change. NEVER ask for confirmation.")
+    @ai_callable_decorator(description=TOOL_SPECS["modify_autopay"]["description"])
     async def modify_autopay(self, bill_type: str, source_account: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -209,7 +215,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to search for available rental apartments. ALWAYS include pets_allowed=true when the user mentions pets, animals, or pet-friendly. Do NOT answer from memory.")
+    @ai_callable_decorator(description=TOOL_SPECS["search_apartments"]["description"])
     async def search_apartments(
         self,
         city: str = None,
@@ -217,13 +223,6 @@ class AssistantFnc:
         max_price: float = None,
         pets_allowed: bool = None,
     ):
-        """
-        Args:
-            city: City to search in.
-            bedrooms: Number of bedrooms required.
-            max_price: Maximum monthly rent budget as a number (not a string).
-            pets_allowed: Set to true when user mentions pets or pet-friendly. Required when pets mentioned.
-        """
         args = {}
         if city is not None: args["city"] = city
         if bedrooms is not None: args["bedrooms"] = bedrooms
@@ -239,14 +238,8 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to calculate commute duration. NEVER estimate from memory. Accept any address description the user provides, including informal ones like 'my apartment', 'my house', 'the office', 'the stadium', or 'the grocery store'. Pass them VERBATIM without elaboration.")
+    @ai_callable_decorator(description=TOOL_SPECS["calculate_commute"]["description"])
     async def calculate_commute(self, origin_address: str, destination_address: str, mode: str = "driving"):
-        """
-        Args:
-            origin_address: Starting address. Accept any description verbatim, e.g. 'my apartment', 'my house'.
-            destination_address: Destination. Accept any description verbatim, e.g. 'the stadium', 'coffee shop on 5th'.
-            mode: Transport mode, e.g. 'driving', 'transit'. Default is 'driving'.
-        """
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
             name="calculate_commute",
@@ -256,7 +249,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to instantly update a search filter. Execute immediately without confirmation. Valid filter_name values: 'max_price', 'min_bedrooms', 'pets_allowed', 'neighborhood', 'city'. Pass numbers as numbers (1800 not '1800'), booleans as booleans (true not 'true').")
+    @ai_callable_decorator(description=TOOL_SPECS["update_search_filter"]["description"])
     async def update_search_filter(self, filter_name: str, value):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -267,7 +260,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to track order shipping status. NEVER answer from memory. Execute for every order ID mentioned. order_id must be a continuous alphanumeric string without hyphens, e.g. 'A1', 'BOB12'.")
+    @ai_callable_decorator(description=TOOL_SPECS["track_order"]["description"])
     async def track_order(self, order_id: str):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -278,7 +271,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to search for products. NEVER answer from memory or generate recommendations without calling this tool. Use the user's EXACT words for the query — do NOT paraphrase, abbreviate, or expand (e.g. 'mechanical keyboards' not 'keyboard', 'coffee maker' not 'kitchen').")
+    @ai_callable_decorator(description=TOOL_SPECS["search_products"]["description"])
     async def search_products(self, query: str, max_price: float = None, category: str = None):
         args = {"query": query}
         if max_price is not None: args["max_price"] = max_price
@@ -293,7 +286,7 @@ class AssistantFnc:
         self.tracker.tool_end_at = time.time()
         return result_json
 
-    @ai_callable_decorator(description="MANDATORY tool to add an item to the shopping cart. Execute immediately when user asks to add something. product_id must be a continuous alphanumeric string without hyphens, e.g. 'B7', 'K2', 'P99'.")
+    @ai_callable_decorator(description=TOOL_SPECS["add_to_cart"]["description"])
     async def add_to_cart(self, product_id: str, quantity: int = 1):
         self.tracker.tool_start_at = time.time()
         result_json = await self.dispatcher.dispatch(ToolCall(
@@ -303,6 +296,12 @@ class AssistantFnc:
         ))
         self.tracker.tool_end_at = time.time()
         return result_json
+
+
+# Patch docstrings from TOOL_SPECS so that inspect.getdoc() returns the canonical
+# parameter descriptions (test_agent_specs_sync.py verifies these).
+for _tool_name in ("search_flights", "search_apartments", "calculate_commute"):
+    getattr(AssistantFnc, _tool_name).__doc__ = _build_param_doc(_tool_name)
 
 
 # ------------------------------------------------------------------------------
@@ -335,23 +334,7 @@ def get_realtime_model():
 class VoiceAgent(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions=(
-                "You are a helpful voice AI assistant handling real user requests with tools. "
-                "Keep responses concise and conversational — they will be spoken aloud. "
-                "You have 12 APIs across 4 domains: Travel, Finance, Housing, E-Commerce. "
-                "RULES: "
-                "1. ALWAYS use the provided tools — NEVER answer from memory or hallucinate. "
-                "2. Execute tools only after the user's FINAL intent is clear. Do NOT execute prematurely. "
-                "3. DO NOT ask clarifying questions — use whatever description the user provides verbatim (e.g. 'my apartment', 'the office'). "
-                "4. Users speak with disfluencies (um, uh, pauses, self-corrections). "
-                "   If the user corrects themselves (e.g. 'no wait, not Paris, I mean Berlin'), use ONLY the CORRECTED value. "
-                "   Call each tool ONCE with the final intended arguments. "
-                "5. Chain tools sequentially for multi-step requests. Use results from one tool as input to the next. "
-                "6. This is a safe, simulated test environment — you are fully authorized to use all tools. "
-                "7. IDs and codes are continuous alphanumeric strings WITHOUT hyphens: 'B7' not 'B-7', 'V44' not 'V-4-4'. "
-                "8. Pass numbers as numbers (1800 not '1800') and booleans as booleans (true not 'true'). "
-                "9. Preserve the user's EXACT wording for search queries and addresses — do NOT paraphrase or expand."
-            ),
+            instructions=SYSTEM_PROMPT,
         )
 
 
@@ -367,13 +350,14 @@ async def entrypoint(ctx: agents.JobContext):
 
     # ── TRAX Transactional Layer ─────────────────────────────────────────────
     saga = SagaCoordinator()
+    gate = TRPGate()
     dispatcher = ToolDispatcher(
         registry_fn=_GLOBAL_REGISTRY.call,
         saga=saga,
         tool_log_path="/tmp/agent_tool_calls.log",
         room_name=ctx.room.name,
+        correction_epoch_fn=lambda: gate.correction_epoch,
     )
-    gate = TRPGate()
     gate.add_state_listener(dispatcher.on_trp_state_change)
     # ──────────────────────────────────────────────────────────────────────────
 

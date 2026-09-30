@@ -790,8 +790,8 @@ SCORE COMPARABILITY — this is the critical question:
 
   Evidence from the FDB-v3 paper and tool-calling literature:
   - Gemini 2.0/2.5 Flash tends to be MORE LENIENT on semantic matching
-    (e.g., "Las Vegas" vs "Vegas" — both models should get this right,
-    but Gemini may also accept "NV" as a city name where gpt-4o would not)
+    (e.g., "Zurich" vs "ZRH" — both models should get this right,
+    but Gemini may also accept "CH" as a city name where gpt-4o would not)
   - Gemini tends to give benefit-of-the-doubt on partial multi-step completions
     where gpt-4o's strict rubric ("score 0 if any step missing") would not
 

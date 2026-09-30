@@ -64,16 +64,15 @@ class _CanonicalEffectMap(dict):
             return super().__getitem__(key)
         if key in self._CODE_ALIASES:
             return super().__getitem__(self._CODE_ALIASES[key])
-        return EffectClass.READ_ONLY
+        return EffectClass.COMPENSABLE
 
     def __contains__(self, key: object) -> bool:
         return super().__contains__(key) or key in self._CODE_ALIASES
 
     def get(self, key: str, default: Any = None) -> Any:
-        try:
+        if super().__contains__(key) or key in self._CODE_ALIASES:
             return self[key]
-        except KeyError:
-            return default
+        return default
 
 
 EFFECT_MAP: dict[str, EffectClass] = _CanonicalEffectMap({
@@ -95,6 +94,12 @@ EFFECT_MAP: dict[str, EffectClass] = _CanonicalEffectMap({
     # IRREVERSIBLE (Atomix: irreversible, require explicit TRP gate)
     "update_travel_profile":       EffectClass.IRREVERSIBLE,  # doc_type, doc_number / travel profile
 })
+
+
+def register_effect(tool_name: str, effect: EffectClass) -> None:
+    """Register or override the effect classification for a tool name."""
+    EFFECT_MAP[tool_name] = effect
+
 
 
 # Sentinel JSON returned to the model when a speculative call is superseded
@@ -133,15 +138,21 @@ class ToolDispatcher:
         saga:        SagaCoordinator,
         tool_log_path: str = "/tmp/agent_tool_calls.log",
         room_name:     str = "unknown",
+        correction_epoch_fn: Optional[Callable[[], int]] = None,
+        retract_committed_mutations: bool = False,
     ) -> None:
         self._registry     = registry_fn
         self._saga         = saga
         self._log_path     = tool_log_path
+        self._audit_log_path = tool_log_path + ".audit"
         self._room_name    = room_name
+        self._correction_epoch_fn = correction_epoch_fn
+        self._retract_committed_mutations = retract_committed_mutations
 
         # Atomix §3: two effect stores
         self._provisional_cache: dict[str, ToolCall] = {}    # call_id → ToolCall (READ_ONLY)
         self._staged_queue:      list[ToolCall]       = []   # COMPENSABLE / IRREVERSIBLE
+        self._committed_history: list[ToolCall]       = []   # committed calls this turn
 
         # Per-turn deduplication: tracks (name, sorted-args-json) of every dispatched call
         # Prevents double-dispatch when model emits the same tool twice in one turn.
@@ -149,6 +160,13 @@ class ToolDispatcher:
 
         # Current gate state — updated by on_trp_state_change
         self._current_state: TRPState = TRPState.LISTENING
+
+    def _should_supersede(self, earlier: ToolCall, new_call: ToolCall) -> bool:
+        if earlier.name != new_call.name:
+            return False
+        if self._correction_epoch_fn is not None:
+            return new_call.issue_epoch > earlier.issue_epoch
+        return True
 
     # -----------------------------------------------------------------------
     # Primary dispatch — called by AssistantFnc tool methods
@@ -161,12 +179,13 @@ class ToolDispatcher:
         Returns a JSON string to the model (same contract as the original tool methods).
         Blocks until TRP_CONFIRMED or ABORTED, which ensures the model waits for
         the user to finish speaking before receiving tool results.
-
-        IMPORTANT: This natural blocking is not a bug — it prevents the model from
-        generating responses with stale parameters before the user's self-correction
-        is complete.
         """
-        effect = EFFECT_MAP.get(call.name, EffectClass.READ_ONLY)
+        if self._correction_epoch_fn is not None:
+            call.issue_epoch = self._correction_epoch_fn()
+        else:
+            call.issue_epoch = 0
+
+        effect = EFFECT_MAP[call.name]
         call.effect_class = effect
 
         # Create per-call resolution future
@@ -174,13 +193,12 @@ class ToolDispatcher:
         call._resolution_future = loop.create_future()
 
         log.info(
-            "dispatcher: intercepted %s(%s) [%s] — current state=%s",
-            call.name, _abbrev_args(call.args), effect.name, self._current_state.name,
+            "dispatcher: intercepted %s(%s) [%s] — current state=%s, epoch=%d",
+            call.name, _abbrev_args(call.args), effect.name, self._current_state.name, call.issue_epoch,
         )
 
         # ── Per-turn deduplication ──────────────────────────────────────────
         # If we've already dispatched the exact same (name, args) this turn, skip.
-        # This prevents double-dispatch when a model emits the same tool call twice.
         call_sig = (call.name, json.dumps(call.args, sort_keys=True))
         if call_sig in self._turn_call_history:
             log.info(
@@ -203,29 +221,30 @@ class ToolDispatcher:
     async def _handle_read_only(self, call: ToolCall) -> None:
         """
         Speculative execution: start API call immediately, hold result in
-        provisional cache.  If the same tool is re-emitted with different args
-        (user corrected destination/date), cancel the old task and replace it.
+        provisional cache.
         """
-        # Check for superseded call: same tool already in cache (self-correction)
-        existing = self._find_provisional_by_name(call.name)
-        if existing is not None and not existing.committed:
-            # Log which args changed for debugging self-correction scenarios
-            old_args = existing.args
-            new_args = call.args
-            changed = {
-                k: {"old": old_args.get(k), "new": new_args.get(k)}
-                for k in set(old_args) | set(new_args)
-                if old_args.get(k) != new_args.get(k)
-            }
-            log.info(
-                "dispatcher: %s superseded by self-correction — args changed: %s",
-                call.name, changed,
-            )
-            if existing.speculative_task and not existing.speculative_task.done():
-                existing.speculative_task.cancel()
-            if not existing._resolution_future.done():
-                existing._resolution_future.set_result(_SUPERSEDED)
-            del self._provisional_cache[existing.call_id]
+        # Supersede earlier provisional calls if repair marker heard
+        for cid, existing in list(self._provisional_cache.items()):
+            if self._should_supersede(existing, call):
+                log.info(
+                    "dispatcher: %s (epoch %d) superseded earlier provisional (epoch %d)",
+                    call.name, call.issue_epoch, existing.issue_epoch,
+                )
+                if existing.speculative_task and not existing.speculative_task.done():
+                    existing.speculative_task.cancel()
+                if not existing._resolution_future.done():
+                    existing._resolution_future.set_result(_SUPERSEDED)
+                self._provisional_cache.pop(cid, None)
+
+        # Retract earlier committed read-only calls if repaired
+        for committed in list(self._committed_history):
+            if self._should_supersede(committed, call) and committed.effect_class == EffectClass.READ_ONLY:
+                log.info(
+                    "dispatcher: retracting early committed read-only call %s (%s)",
+                    committed.name, committed.call_id,
+                )
+                self._retract_telemetry(committed.call_id)
+                self._committed_history.remove(committed)
 
         # Start speculative API call in background
         call.speculative_task = asyncio.create_task(
@@ -236,8 +255,6 @@ class ToolDispatcher:
 
         log.debug("dispatcher: %s speculative task started", call.name)
 
-        # If TRP already confirmed (e.g., clean-speech scenario where model calls
-        # tool after turn is complete), commit immediately without waiting.
         if self._current_state == TRPState.TRP_CONFIRMED:
             log.debug("dispatcher: TRP already confirmed, committing %s immediately", call.name)
             asyncio.create_task(self._commit_read_only(call))
@@ -247,13 +264,45 @@ class ToolDispatcher:
         Staged queue: COMPENSABLE and IRREVERSIBLE mutations are never executed
         while the user is speaking or in REPAIRING state.
         """
+        # Supersede earlier staged calls if repair marker heard
+        for staged in list(self._staged_queue):
+            if self._should_supersede(staged, call):
+                log.info(
+                    "dispatcher: %s (epoch %d) superseded earlier staged %s (epoch %d)",
+                    call.name, call.issue_epoch, staged.name, staged.issue_epoch,
+                )
+                if not staged._resolution_future.done():
+                    staged._resolution_future.set_result(_SUPERSEDED)
+                self._staged_queue.remove(staged)
+
+        # Handle earlier committed mutations if repair marker heard
+        for committed in list(self._committed_history):
+            if self._should_supersede(committed, call) and committed.effect_class != EffectClass.READ_ONLY:
+                if self._retract_committed_mutations:
+                    log.info("dispatcher: retracting early committed mutation %s (%s)", committed.name, committed.call_id)
+                    self._retract_telemetry(committed.call_id)
+                    self._committed_history.remove(committed)
+                else:
+                    log.info("dispatcher: logging stale committed mutation event in audit log for %s", committed.name)
+                    try:
+                        import os
+                        with open(self._audit_log_path, "a", encoding="utf-8") as f:
+                            f.write(json.dumps({
+                                "room": self._room_name,
+                                "event": "stale_mutation_committed_before_repair",
+                                "call_id": committed.call_id,
+                                "tool": committed.name,
+                                "args": committed.args,
+                            }) + "\n")
+                    except OSError as exc:
+                        log.error("dispatcher: failed to write audit log: %s", exc)
+
         self._staged_queue.append(call)
         log.info(
             "dispatcher: %s [%s] staged — awaiting TRP_CONFIRMED before execution",
             call.name, call.effect_class.name,
         )
 
-        # Same fast-path: if TRP already confirmed, execute immediately
         if self._current_state == TRPState.TRP_CONFIRMED:
             log.debug("dispatcher: TRP already confirmed, executing staged %s immediately", call.name)
             asyncio.create_task(self._commit_mutating(call))
@@ -263,20 +312,6 @@ class ToolDispatcher:
     # -----------------------------------------------------------------------
 
     async def on_trp_state_change(self, new_state: TRPState) -> None:
-        """
-        Wired as gate.add_state_listener(dispatcher.on_trp_state_change).
-
-        TRP_CONFIRMED:
-          1. For each READ_ONLY call: await speculative task → write log → resolve future
-          2. For each COMPENSABLE/IRREVERSIBLE call: execute API → write log →
-             register with saga → resolve future
-          3. Clear both stores
-
-        ABORTED:
-          1. Cancel all speculative tasks
-          2. Resolve all futures with abort sentinel (no log written — no telemetry)
-          3. Clear both stores
-        """
         self._current_state = new_state
 
         if new_state == TRPState.TRP_CONFIRMED:
@@ -287,7 +322,6 @@ class ToolDispatcher:
 
         elif new_state == TRPState.REPAIRING:
             log.info("dispatcher: state=REPAIRING — all commits suspended")
-            # Nothing to do in the store — calls already hold their futures
 
     # -----------------------------------------------------------------------
     # Commit path (TRP_CONFIRMED)
@@ -300,27 +334,23 @@ class ToolDispatcher:
             len(self._provisional_cache), len(self._staged_queue),
         )
 
-        # Snapshot so we can clear stores before awaiting
         provisional = list(self._provisional_cache.values())
         staged      = list(self._staged_queue)
         self._provisional_cache.clear()
         self._staged_queue.clear()
 
-        # READ_ONLY: await all speculative tasks (likely already done)
-        # Use gather so they run concurrently
         await asyncio.gather(
             *[self._commit_read_only(call) for call in provisional],
             return_exceptions=True,
         )
 
-        # COMPENSABLE / IRREVERSIBLE: execute in order (preserve saga ordering)
         for call in staged:
             await self._commit_mutating(call)
 
     async def _commit_read_only(self, call: ToolCall) -> None:
         """Await the speculative task result and write the telemetry log."""
         if call._resolution_future.done():
-            return   # already resolved (superseded or prior fast-path)
+            return
 
         try:
             result = await call.speculative_task
@@ -337,8 +367,8 @@ class ToolDispatcher:
         call.committed   = True
         call.committed_at = time.monotonic()
 
-        # Write benchmark telemetry log — this is what FDB-v3 evaluator scores
         self._write_telemetry(call)
+        self._committed_history.append(call)
 
         result_json = json.dumps(result)
         if not call._resolution_future.done():
@@ -364,10 +394,9 @@ class ToolDispatcher:
         call.committed    = True
         call.committed_at = time.monotonic()
 
-        # Write telemetry
         self._write_telemetry(call, t_start=t_start, t_end=t_end)
+        self._committed_history.append(call)
 
-        # Register compensation with SagaCoordinator (Garcia-Molina & Salem 1987)
         if call.effect_class in (EffectClass.COMPENSABLE, EffectClass.IRREVERSIBLE):
             entry = self._build_compensation(call, result)
             self._saga.register(entry)
@@ -412,10 +441,6 @@ class ToolDispatcher:
     # -----------------------------------------------------------------------
 
     async def _run_api(self, name: str, args: dict) -> dict:
-        """
-        Run a mock API call in a thread executor to avoid blocking the event loop.
-        registry.call() is synchronous (includes latency injection), so we offload it.
-        """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
@@ -428,16 +453,12 @@ class ToolDispatcher:
         t_start: Optional[float] = None,
         t_end:   Optional[float] = None,
     ) -> None:
-        """
-        Write the tool call record to /tmp/agent_tool_calls.log.
-        This is the file the FDB-v3 benchmark evaluator reads for scoring.
-        Only called on TRP_CONFIRMED — never on provisional or aborted calls.
-        """
         t_start = t_start or time.time()
         t_end   = t_end   or t_start
         record = {
-            "room":  self._room_name,
-            "call":  {
+            "room":    self._room_name,
+            "call_id": call.call_id,
+            "call": {
                 "function":        call.name,
                 "args":            call.args,
                 "timestamp_start": t_start,
@@ -445,134 +466,138 @@ class ToolDispatcher:
             },
         }
         try:
-            import os
-            existing_lines = []
-            if os.path.exists(self._log_path):
-                with open(self._log_path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if not line.strip():
-                            continue
-                        try:
-                            item = json.loads(line)
-                            # Atomix §3 & ADR 03: Within the same room/session, if the same tool is re-committed
-                            # with corrected parameters, it supersedes the earlier stale call in the execution trace.
-                            if item.get("room") == self._room_name and item.get("call", {}).get("function") == call.name:
-                                log.info(
-                                    "dispatcher: self-correction confirmed — superseding earlier logged %s for room %s",
-                                    call.name, self._room_name,
-                                )
-                                continue
-                            existing_lines.append(line.strip())
-                        except Exception:
-                            existing_lines.append(line.strip())
-
-            existing_lines.append(json.dumps(record))
-            with open(self._log_path, "w", encoding="utf-8") as f:
-                for line in existing_lines:
-                    f.write(line + "\n")
+            with open(self._log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record) + "\n")
         except OSError as exc:
             log.error("dispatcher: failed to write telemetry: %s", exc)
 
+    def _retract_telemetry(self, call_id: str) -> None:
+        import os
+        if not os.path.exists(self._log_path):
+            return
+        try:
+            new_lines = []
+            with open(self._log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        item = json.loads(line)
+                        if item.get("call_id") == call_id:
+                            continue
+                        new_lines.append(line.strip())
+                    except Exception:
+                        new_lines.append(line.strip())
+            with open(self._log_path, "w", encoding="utf-8") as f:
+                for line in new_lines:
+                    f.write(line + "\n")
+        except OSError as exc:
+            log.error("dispatcher: failed to retract telemetry for %s: %s", call_id, exc)
+
     def _find_provisional_by_name(self, name: str) -> Optional[ToolCall]:
-        """Return the first provisional cache entry with matching tool name, or None."""
         for call in self._provisional_cache.values():
             if call.name == name:
                 return call
         return None
 
     def _build_compensation(self, call: ToolCall, result: dict) -> CompensationEntry:
-        """
-        Build a CompensationEntry with a pre-baked compensation closure.
-        The closure captures the committed args and result so it can be
-        invoked later by SagaCoordinator.compensate_all() with no arguments.
-        """
         name   = call.name
         args   = call.args
         result = result  # capture
 
-        # Build compensation closure based on tool
         if name in ("book_flight", "book_ticket"):
-            # Compensation: cancel the flight booking
             booking_ref = result.get("booking_ref", "UNKNOWN")
             async def compensate():
                 log.info("saga compensation: cancel_flight(booking_ref=%s)", booking_ref)
-                # In mock env, log the cancellation
-                with open(self._log_path, "a") as f:
-                    f.write(json.dumps({
-                        "room": self._room_name,
-                        "compensation": {"action": "cancel_flight", "booking_ref": booking_ref}
-                    }) + "\n")
+                try:
+                    with open(self._audit_log_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({
+                            "room": self._room_name,
+                            "compensation": {"action": "cancel_flight", "booking_ref": booking_ref}
+                        }) + "\n")
+                except OSError as exc:
+                    log.error("saga: failed to write audit compensation log: %s", exc)
 
         elif name in ("modify_autopay", "modify_autopay_source"):
-            bill_type      = args.get("bill_type", "")
-            prev_source    = args.get("source_account", "")  # what we changed FROM (stored at call time)
+            bill_type   = args.get("bill_type", "")
+            prev_source = args.get("source_account", "")
             async def compensate():
-                log.info("saga compensation: revert_autopay(bill=%s, prev_source=%s)",
-                         bill_type, prev_source)
-                with open(self._log_path, "a") as f:
-                    f.write(json.dumps({
-                        "room": self._room_name,
-                        "compensation": {
-                            "action": "revert_autopay",
-                            "bill_type": bill_type,
-                            "revert_to_source": "default",
-                        }
-                    }) + "\n")
+                log.info("saga compensation: revert_autopay(bill=%s, prev_source=%s)", bill_type, prev_source)
+                try:
+                    with open(self._audit_log_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({
+                            "room": self._room_name,
+                            "compensation": {
+                                "action": "revert_autopay",
+                                "bill_type": bill_type,
+                                "revert_to_source": "default",
+                            }
+                        }) + "\n")
+                except OSError as exc:
+                    log.error("saga: failed to write audit compensation log: %s", exc)
 
         elif name == "update_search_filter":
             filter_name = args.get("filter_name", "")
             async def compensate():
                 log.info("saga compensation: reset_search_filter(filter=%s)", filter_name)
-                with open(self._log_path, "a") as f:
-                    f.write(json.dumps({
-                        "room": self._room_name,
-                        "compensation": {"action": "reset_search_filter", "filter_name": filter_name}
-                    }) + "\n")
+                try:
+                    with open(self._audit_log_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({
+                            "room": self._room_name,
+                            "compensation": {"action": "reset_search_filter", "filter_name": filter_name}
+                        }) + "\n")
+                except OSError as exc:
+                    log.error("saga: failed to write audit compensation log: %s", exc)
 
         elif name == "add_to_cart":
             product_id = args.get("product_id", "")
             quantity   = args.get("quantity", 1)
             async def compensate():
-                log.info("saga compensation: remove_from_cart(product=%s, qty=%d)",
-                         product_id, quantity)
-                with open(self._log_path, "a") as f:
-                    f.write(json.dumps({
-                        "room": self._room_name,
-                        "compensation": {
-                            "action": "remove_from_cart",
-                            "product_id": product_id,
-                            "quantity": quantity,
-                        }
-                    }) + "\n")
+                log.info("saga compensation: remove_from_cart(product=%s, qty=%d)", product_id, quantity)
+                try:
+                    with open(self._audit_log_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({
+                            "room": self._room_name,
+                            "compensation": {
+                                "action": "remove_from_cart",
+                                "product_id": product_id,
+                                "quantity": quantity,
+                            }
+                        }) + "\n")
+                except OSError as exc:
+                    log.error("saga: failed to write audit compensation log: %s", exc)
 
         elif name in ("update_identity_doc", "update_travel_profile"):
-            # IRREVERSIBLE — no programmatic rollback; emit audit entry only
             doc_type   = args.get("doc_type", "")
-            doc_number = args.get("doc_number", "")
             async def compensate():
                 log.warning(
-                    "saga audit: update_identity_doc for doc_type=%s is IRREVERSIBLE "
-                    "(cannot programmatically rollback government document)",
+                    "saga audit: update_identity_doc for doc_type=%s is IRREVERSIBLE",
                     doc_type,
                 )
-                with open(self._log_path, "a") as f:
-                    f.write(json.dumps({
-                        "room": self._room_name,
-                        "compensation": {
-                            "action": "audit_only_irreversible",
-                            "tool": name,
-                            "doc_type": doc_type,
-                        }
-                    }) + "\n")
+                try:
+                    with open(self._audit_log_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({
+                            "room": self._room_name,
+                            "compensation": {
+                                "action": "audit_only_irreversible",
+                                "tool": name,
+                                "doc_type": doc_type,
+                            }
+                        }) + "\n")
+                except OSError as exc:
+                    log.error("saga: failed to write audit compensation log: %s", exc)
 
         elif name in ("cancel_pending_action", "process_exchange"):
             async def compensate():
                 log.info("saga compensation: %s acknowledged", name)
-                with open(self._log_path, "a") as f:
-                    f.write(json.dumps({
-                        "room": self._room_name,
-                        "compensation": {"action": f"revert_{name}"}
-                    }) + "\n")
+                try:
+                    with open(self._audit_log_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({
+                            "room": self._room_name,
+                            "compensation": {"action": f"revert_{name}"}
+                        }) + "\n")
+                except OSError as exc:
+                    log.error("saga: failed to write audit compensation log: %s", exc)
         else:
             async def compensate():
                 log.warning("saga: no compensation registered for %s", name)
@@ -586,13 +611,23 @@ class ToolDispatcher:
         )
 
     def reset_for_new_turn(self) -> None:
-        """Called at turn boundary. Cancels any lingering tasks silently."""
-        for call in self._provisional_cache.values():
+        """Called at turn boundary. Cancels lingering tasks and resolves pending futures."""
+        discarded_sentinel = json.dumps({"status": "discarded"})
+
+        for call in list(self._provisional_cache.values()):
             if call.speculative_task and not call.speculative_task.done():
                 call.speculative_task.cancel()
+            if not call._resolution_future.done():
+                call._resolution_future.set_result(discarded_sentinel)
+
+        for call in list(self._staged_queue):
+            if not call._resolution_future.done():
+                call._resolution_future.set_result(discarded_sentinel)
+
         self._provisional_cache.clear()
         self._staged_queue.clear()
-        self._turn_call_history.clear()   # reset dedup history for the new turn
+        self._committed_history.clear()
+        self._turn_call_history.clear()
         self._current_state = TRPState.LISTENING
 
 

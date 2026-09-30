@@ -40,13 +40,20 @@ log = logging.getLogger("trax.trp_gate")
 # TIER 1 — Strong self-correction signals (Levelt 1983: overt editing phase markers)
 # These indicate the user is actively changing their request → full 900 ms hold.
 _CORRECTION_TERMS_RE = re.compile(
-    r"\b("
-    r"wait|actually|no|sorry|scratch that|i mean|never mind|hold on"
-    r"|correction|let me correct|i meant"
-    r"|wait no|wait actually|oh wait|oh no"
-    r"|rather|instead of|oops|make that|change that to"
-    r"|not [\w]+[,]? (but|i mean)"
-    r")\b",
+    r"(?:"
+    r"\bwait\s+no\b|\bno\s+wait\b|\bwait\s+actually\b|\boh\s+(?:wait|no)\b"
+    r"|\bscratch\s+that\b|\bnever\s+mind\b|\bhold\s+on\b"
+    r"|\blet\s+me\s+correct\b|\bi\s+meant\b|\bi\s+mean\b"
+    r"|\binstead\s+of\b|\bchange\s+that\s+to\b"
+    r"|\bactually(?:\s+make\s+that)?\b"
+    r"|(?<!actually\s)\bmake\s+that\b"
+    r"|\bsorry\b|\boops\b|\bcorrection\b"
+    r"|(?:[,\u2014]|\.\.\.)\s*no\s*,"
+    r"|(?:[,\u2014]|\.\.\.)\s*no\b"
+    r"|(?:^|[,;]|\bor\s+)rather\b"
+    r"|\brather\s*,"
+    r"|\bnot\s+[\w]+[,]?\s+(?:but|i\s+mean)\b"
+    r")",
     re.IGNORECASE,
 )
 
@@ -54,7 +61,7 @@ _CORRECTION_TERMS_RE = re.compile(
 # These indicate thinking, not necessarily a self-correction → shorter 500 ms slow-down.
 # Do NOT enter REPAIRING for these alone; just delay TRP confirmation slightly.
 _FILLER_TERMS_RE = re.compile(
-    r"\b(uh|um|er|hmm|like|you know)\b",
+    r"\b(?:uh|um|er|hmm)\b|,\s*like\b|\blike\s*,|,\s*you\s+know\b",
     re.IGNORECASE,
 )
 
@@ -107,6 +114,8 @@ class TRPGate:
         self._correction_tier:    int      = 0           # 0=none, 1=strong correction, 2=filler only
         self._listeners:          List[Callable[[TRPState], Coroutine]] = []
         self._quiescence_task:    Optional[asyncio.Task] = None
+        self._base_epoch:         int      = 0
+        self._turn_repairs:       int      = 0
 
     # -----------------------------------------------------------------------
     # Public observable
@@ -115,6 +124,10 @@ class TRPGate:
     @property
     def state(self) -> TRPState:
         return self._state
+
+    @property
+    def correction_epoch(self) -> int:
+        return self._base_epoch + self._turn_repairs
 
     # -----------------------------------------------------------------------
     # Listener registration
@@ -148,7 +161,11 @@ class TRPGate:
 
         # ── TIER 1: Strong self-correction (Levelt 1983) ──────────────────
         # "no wait", "actually", "scratch that", etc. → full REPAIRING state, 900 ms hold
-        if _CORRECTION_TERMS_RE.search(token):
+        corr_matches = list(_CORRECTION_TERMS_RE.finditer(token))
+        if corr_matches:
+            n_repairs = len(corr_matches)
+            if n_repairs > self._turn_repairs:
+                self._turn_repairs = n_repairs
             self._last_editing_at = time.monotonic()
             self._correction_tier = 1
             if self._state != TRPState.REPAIRING:
@@ -269,6 +286,8 @@ class TRPGate:
         self._buffer            = ""
         self._last_editing_at   = 0.0
         self._correction_tier   = 0   # reset tier for the new turn
+        self._base_epoch       += self._turn_repairs
+        self._turn_repairs      = 0
 
     # -----------------------------------------------------------------------
     # Internal
