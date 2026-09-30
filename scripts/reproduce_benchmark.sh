@@ -76,7 +76,14 @@ else MODEL="n/a (evaluation only)"; fi
 if [ "$LOCAL_EXACT_MATCH" -eq 1 ]; then
   JUDGE="local exact-match diagnostic only"; LLM_FLAG=""
 else
-  need OPENAI_API_KEY; JUDGE="official LLM judge"; LLM_FLAG="--use-llm"
+  if [ -z "${OPENAI_API_KEY:-}" ]; then
+    echo "error: OPENAI_API_KEY is not set in .env." >&2
+    echo "       The official FDB-v3 benchmark scorer requires an OpenAI API key for its LLM judge." >&2
+    echo "       If you don't have an OpenAI key, run with local exact-match diagnostic by adding the flag:" >&2
+    echo "         --local-exact-match" >&2
+    exit 1
+  fi
+  JUDGE="official LLM judge"; LLM_FLAG="--use-llm"
 fi
 echo "provider=$LK_PROVIDER model=$MODEL judge=$JUDGE mode=$MODE"
 
